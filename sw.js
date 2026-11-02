@@ -1,5 +1,5 @@
 // POCT Onderweg service worker: app-shell offline, fonts runtime gecachet.
-const VERSIE="poct-onderweg-1.4";
+const VERSIE="poct-onderweg-1.5";
 const SHELL=["./","./index.html","./manifest.webmanifest","./icons/icon-192.png","./icons/icon-512.png","./icons/apple-touch-icon.png"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(VERSIE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==VERSIE).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});

@@ -12,5 +12,6 @@ Mobiele app (PWA) voor POCT-coördinatoren: reagentia afleveren, voorraad tellen
 
 ## Bestanden
 - `index.html` – de app (HTML, CSS en JS in één bestand)
+- `POCT-Onderweg.html` – alles-in-één versie voor gebruik vanuit een map op de pc; slaat gegevens in zichzelf op
 - `sw.js` – service worker voor offline gebruik
 - `manifest.webmanifest`, `icons/` – installatiegegevens
