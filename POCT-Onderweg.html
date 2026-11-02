@@ -394,6 +394,16 @@ video{width:100%;border-radius:10px;background:#000;aspect-ratio:4/3;object-fit:
   <div class="scroll" style="display:grid;gap:10px"><p class="small muted" style="margin:0">Opslaan als bestand lukt hier niet. Kopieer de inhoud en bewaar die onder de naam hieronder.</p><code class="mono small" id="textName"></code><textarea id="textBody" rows="10" readonly class="mono small"></textarea><button type="button" class="pri" id="textCopy">Kopiëren</button></div>
 </div></dialog>
 
+<dialog id="startSheet" aria-label="Opslagplek kiezen"><div class="sheet">
+  <div class="grip"></div>
+  <div class="panel-h"><h2 id="startTitel">Waar bewaar je de gegevens?</h2></div>
+  <div class="scroll" style="display:grid;gap:12px">
+    <p class="sub" style="margin:0" id="startTekst"></p>
+    <button type="button" class="pri block" id="startKies"></button>
+    <div class="btns"><button type="button" id="startLater">Later</button><button type="button" class="ghost" id="startNooit">Niet meer vragen</button></div>
+  </div>
+</div></dialog>
+
 <div id="toast" hidden role="status" aria-live="polite"></div>
 
 <script type="application/json" id="poctData">null</script>
@@ -842,7 +852,7 @@ function htmlMetData(){const data=JSON.stringify(S).replace(/</g,"\\u003c");
   const html="<!doctype html>\n"+BRON_HTML.replace(/(<script type="application\/json" id="poctData">)[\s\S]*?(<\/script>)/,(m,a,b)=>a+data+b);return html}
 async function opslaanInBestand(nieuw){const html=htmlMetData();const naam=(document.title||"POCT Onderweg").replace(/\s+/g,"-")+".html";
   try{
-    if(window.showSaveFilePicker&&(nieuw||!bestandHandle)){bestandHandle=await showSaveFilePicker({suggestedName:naam,types:[{description:"POCT Onderweg (HTML)",accept:{"text/html":[".html"]}}]})}
+    if(window.showSaveFilePicker&&(nieuw||!bestandHandle)){bestandHandle=await showSaveFilePicker({suggestedName:naam,types:[{description:"POCT Onderweg (HTML)",accept:{"text/html":[".html"]}}]});handleBewaar(bestandHandle)}
     if(bestandHandle){const w=await bestandHandle.createWritable();await w.write(html);await w.close()}
     else{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([html],{type:"text/html"}));a.download=naam;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000)}
     bestandVuil=false;bestandTijd=new Date();renderBestand();toast(bestandHandle?"Opgeslagen in "+bestandHandle.name:"Bestand gedownload: zet het terug in de map");return true}
@@ -855,6 +865,24 @@ function renderBestand(){const el=document.getElementById("bestandStatus");if(!e
   const b=document.getElementById("bestandOpslaan");if(b)b.textContent=bestandHandle?"Nu opslaan":(pick?"Opslaan in bestand…":"Bestand met gegevens downloaden");
   const pill=document.getElementById("bestandPill");if(pill){pill.hidden=!bestandVuil||!!bestandHandle&&!bestandVuil}}
 addEventListener("beforeunload",e=>{if(bestandVuil&&location.protocol==="file:"){e.preventDefault();e.returnValue=""}});
+
+
+/* ---------- opslagplek onthouden (eenmalig kiezen bij openen) ---------- */
+const idb=(mode,fn)=>new Promise((ok,nok)=>{try{const o=indexedDB.open("poct-onderweg",1);o.onupgradeneeded=()=>o.result.createObjectStore("kv");
+  o.onsuccess=()=>{const tx=o.result.transaction("kv",mode),st=tx.objectStore("kv"),q=fn(st);tx.oncomplete=()=>ok(q&&q.result);tx.onerror=()=>nok(tx.error)};o.onerror=()=>nok(o.error)}catch(e){nok(e)}});
+const handleBewaar=h=>idb("readwrite",st=>st.put(h,"bestand")).catch(()=>{});
+const handleLees=()=>idb("readonly",st=>st.get("bestand")).catch(()=>null);
+let startHandle=null;
+async function startVraag(){if(!window.showSaveFilePicker||location.protocol!=="file:")return; // alleen waar rechtstreeks in een bestand geschreven kan worden (pc)
+  const h=await handleLees();const d=$("#startSheet");
+  if(h){try{if(await h.queryPermission({mode:"readwrite"})==="granted"){bestandHandle=h;renderBestand();return}}catch(e){}
+    startHandle=h;$("#startTitel").textContent="Verder met je opslagbestand?";
+    $("#startTekst").innerHTML=`De gegevens worden bewaard in <b>${esc(h.name)}</b>. De browser vraagt na het openen één keer om toestemming om daarin te schrijven.`;
+    $("#startKies").textContent="Ja, opslaan in "+h.name;$("#startNooit").hidden=true;d.showModal();return}
+  if(S.cfg.geenStartVraag)return;startHandle=null;
+  $("#startTitel").textContent="Waar bewaar je de gegevens?";
+  $("#startTekst").innerHTML="Kies één keer een bestand, bijvoorbeeld in de gedeelde map. Daarna slaat de app elke wijziging daar automatisch in op, en vindt hij dat bestand de volgende keer zelf terug. Een andere map kiezen kan later onder Sync › Opslaan als.";
+  $("#startKies").textContent="Opslagbestand kiezen";$("#startNooit").hidden=false;d.showModal()}
 
 /* ================= events ================= */
 document.addEventListener("click",async e=>{if(e.target.closest("#dicoonFig")){grapOpen=!grapOpen;renderDicoon();return}
@@ -873,6 +901,11 @@ document.addEventListener("click",async e=>{if(e.target.closest("#dicoonFig")){g
   if(t.id==="syncNu"){syncNu();return}
   if(t.id==="expXlsx"){const R=expRijen();await bewaarBlob(xlsx({Leveringen:R.leveringen,Tellingen:R.tellingen,QC:R.qc,Locaties:R.locaties}),`POCT-Onderweg_${today()}.xlsx`);return}
   if(t.id==="expCsv"){const k=$("#expCsvSoort").value;await bewaarBlob(new Blob([csvVan(expRijen()[k])],{type:"text/csv"}),`POCT-Onderweg_${k}_${today()}.csv`);return}
+  if(t.id==="startKies"){const d=$("#startSheet");
+    if(startHandle){try{if(await startHandle.requestPermission({mode:"readwrite"})==="granted"){bestandHandle=startHandle;d.close();if(bestandVuil)opslaanInBestand(false);renderBestand();toast("Opslaan in "+startHandle.name);return}}catch(e){}toast("Geen toestemming. Kies het bestand opnieuw.",true);startHandle=null}
+    d.close();await opslaanInBestand(true);return}
+  if(t.id==="startLater"){$("#startSheet").close();return}
+  if(t.id==="startNooit"){S.cfg.geenStartVraag=true;save();$("#startSheet").close();toast("Je kunt het later instellen onder Sync");return}
   if(t.id==="bestandOpslaan"){opslaanInBestand(false);return}
   if(t.id==="bestandAnders"){opslaanInBestand(true);return}
   if(t.id==="bevestig"&&wachtend){markeer(wachtend);wachtend=null;$("#syncConfirm").innerHTML="";toast("Gemarkeerd als verzonden");renderSync();return}
@@ -900,7 +933,7 @@ function netState(){const on=navigator.onLine;$("#netPill").classList.toggle("of
 addEventListener("online",netState);addEventListener("offline",netState);
 
 /* ================= start ================= */
-load();migreer();try{localStorage.setItem(LSKEY,JSON.stringify(S))}catch(e){}bestandVuil=false;netState();route();renderBestand();
+load();migreer();try{localStorage.setItem(LSKEY,JSON.stringify(S))}catch(e){}bestandVuil=false;netState();route();renderBestand();startVraag();
 if("serviceWorker" in navigator&&location.protocol==="https:"&&!/claude|anthropic/.test(location.hostname)){try{navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}}
 </script>
 
