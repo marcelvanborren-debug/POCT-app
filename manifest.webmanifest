@@ -1,0 +1,40 @@
+{
+ "name": "POCT Onderweg",
+ "short_name": "POCT",
+ "description": "Afleveren, tellen en QC voor POCT-coördinatoren",
+ "lang": "nl",
+ "start_url": "./index.html#locatie",
+ "scope": "./",
+ "display": "standalone",
+ "orientation": "portrait",
+ "background_color": "#f3f6f7",
+ "theme_color": "#0a6a70",
+ "icons": [
+  {
+   "src": "icons/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png"
+  },
+  {
+   "src": "icons/icon-maskable-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ],
+ "shortcuts": [
+  {
+   "name": "Afleveren",
+   "url": "./index.html#afleveren"
+  },
+  {
+   "name": "QC invoeren",
+   "url": "./index.html#qc"
+  }
+ ]
+}

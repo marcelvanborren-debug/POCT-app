@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a6a70">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="POCT">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px)}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>POCT Onderweg</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: één hand, één scherm. Vaste kop met huidige locatie, werkvlak per taak, tabbalk onderin binnen duimbereik. Huisstijl gelijk aan POCT Voorraad. */
+:root{
+  --bg:#f3f6f7; --surface:#ffffff; --sunk:#e9eef0; --ink:#15232a; --muted:#5a6c75; --line:#d7e0e4;
+  --accent:#0a6a70; --accent-ink:#ffffff; --accent-soft:#dcefef; --ok:#1d7a48; --warn:#9a5c00; --bad:#b3261e;
+  --ok-soft:#e1f2e8; --warn-soft:#fbefd9; --bad-soft:#fbe4e2;
+  --f-body:"Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-num:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r:12px; --nav-h:64px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0e1518; --surface:#162026; --sunk:#111a1f; --ink:#e3ebee; --muted:#93a5ae; --line:#283840;
+  --accent:#53b9be; --accent-ink:#04282b; --accent-soft:#163a3d; --ok:#5ec68d; --warn:#e2a64c; --bad:#f07d74;
+  --ok-soft:#173326; --warn-soft:#3a2c14; --bad-soft:#3d1c1a; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0e1518; --surface:#162026; --sunk:#111a1f; --ink:#e3ebee; --muted:#93a5ae; --line:#283840;
+  --accent:#53b9be; --accent-ink:#04282b; --accent-soft:#163a3d; --ok:#5ec68d; --warn:#e2a64c; --bad:#f07d74;
+  --ok-soft:#173326; --warn-soft:#3a2c14; --bad-soft:#3d1c1a; color-scheme:dark }
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45;margin:0;
+  padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px) + 16px);-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{text-wrap:balance;margin:0}
+h2{font-size:19px} h3{font-size:16px}
+.mono,.n{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+/* kop */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .row{display:flex;align-items:center;gap:10px;padding-block:10px}
+.brand{font-size:18px;font-weight:700;margin-right:auto;letter-spacing:-.01em}
+.brand b{color:var(--accent)}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted);white-space:nowrap;background:var(--surface)}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.pill.off .dot{background:var(--warn)}
+.pill.due{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
+.pill.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.pill.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,transparent)}
+.locbar{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--accent-soft);color:var(--ink);border:0;border-radius:var(--r);padding:10px 12px;margin-bottom:10px;font:inherit;cursor:pointer;min-height:52px}
+.locbar .lbl{font-size:12px;color:var(--muted);display:block;text-transform:uppercase;letter-spacing:.05em}
+.locbar .nm{font-weight:700;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.locbar > span:first-child{min-width:0;flex:1}
+.locbar .chev{color:var(--accent);font-weight:700;font-size:14px}
+
+main{padding-top:14px;display:grid;gap:14px}
+.view{display:grid;gap:14px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:12px;min-width:0}
+.panel-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.sub{margin:0;color:var(--muted);font-size:14px}
+
+/* formulieren */
+form{display:grid;gap:12px}
+.fld{display:grid;gap:5px;font-size:13px;color:var(--muted);min-width:0}
+.fld > span{text-transform:uppercase;letter-spacing:.05em;font-size:12px}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:380px){.fr{grid-template-columns:1fr}}
+input,select,textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:11px 12px;min-height:48px;width:100%;min-width:0}
+textarea{min-height:80px;resize:vertical}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:2px}
+input[type=number]{font-family:var(--f-num)}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:10px 14px;min-height:48px;font-weight:700}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.ghost{background:transparent;border-color:transparent;color:var(--accent);padding-inline:8px}
+button.sm{min-height:38px;padding:6px 12px;font-size:14px}
+button.block{width:100%}
+button.danger{color:var(--bad)}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+.btns > *{flex:1 1 auto}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--sunk);border-radius:10px;padding:3px;gap:3px}
+.seg input{position:absolute;opacity:0;pointer-events:none;width:1px;min-height:0}
+.seg label{display:flex;align-items:center;justify-content:center;min-height:42px;border-radius:8px;font-weight:700;font-size:14px;color:var(--muted);cursor:pointer;text-align:center;padding:0 6px}
+.seg input:checked + span{color:var(--ink)}
+.seg label:has(input:checked){background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0/.12)}
+.seg label:has(input:focus-visible){outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent)}
+
+/* teller */
+.cnt{display:grid;grid-template-columns:48px minmax(0,1fr) 48px;gap:6px;align-items:center}
+.cnt button{padding:0;font-size:22px;line-height:1}
+.cnt input{text-align:center;font-size:20px;font-weight:500}
+.tel-row{display:grid;gap:8px;padding-block:12px;border-top:1px solid var(--line)}
+.tel-row:first-of-type{border-top:0;padding-top:0}
+.tel-row .hd{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.tel-row .hd b{font-size:16px}
+
+/* lijsten */
+.list{display:grid;gap:0}
+.item{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);min-width:0}
+.item:first-child{border-top:0}
+.item .main{min-width:0;flex:1}
+.item .t,.item .s{display:block}
+.item .t{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .s{font-size:13px;color:var(--muted)}
+button.item{width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);border-radius:0;font-weight:400;min-height:60px;padding-inline:0}
+button.item:first-child{border-top:0}
+.ini{flex:none;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-weight:700;font-size:13px;background:var(--sunk);color:var(--muted)}
+.ini.on{background:var(--accent);color:var(--accent-ink)}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border-radius:99px;min-height:36px;padding:4px 12px;font-size:14px;font-weight:700;background:var(--surface);color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.act{display:grid;justify-items:center;gap:6px;padding:14px 6px;min-height:92px;background:var(--surface);font-size:14px}
+.act svg{width:28px;height:28px;stroke:var(--accent)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;min-width:0}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:6px}
+.tag.ok{background:var(--ok-soft);color:var(--ok)} .tag.bad{background:var(--bad-soft);color:var(--bad)} .tag.warn{background:var(--warn-soft);color:var(--warn)} .tag.mute{background:var(--sunk);color:var(--muted)}
+.qcres{border-radius:10px;padding:12px;font-weight:700;display:flex;gap:10px;align-items:center}
+.qcres.ok{background:var(--ok-soft);color:var(--ok)} .qcres.bad{background:var(--bad-soft);color:var(--bad)} .qcres.mute{background:var(--sunk);color:var(--muted)}
+.banner{border-radius:var(--r);padding:12px 14px;font-size:14px;background:var(--warn-soft);color:var(--ink);display:grid;gap:8px}
+.banner b{color:var(--warn)}
+.stat{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat div{background:var(--sunk);border-radius:10px;padding:10px;display:grid}
+.stat b{font-family:var(--f-num);font-size:22px;font-weight:500}
+.stat span{font-size:12px;color:var(--muted)}
+details summary{cursor:pointer;font-weight:700;min-height:40px;display:flex;align-items:center}
+.empty{color:var(--muted);font-size:14px;padding:6px 0}
+
+/* tabbalk */
+nav.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+nav.tabbar .in{max-width:720px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);height:var(--nav-h)}
+nav.tabbar a{display:grid;justify-items:center;align-content:center;gap:3px;text-decoration:none;color:var(--muted);font-size:11px;font-weight:700;position:relative}
+nav.tabbar a svg{width:24px;height:24px;stroke:currentColor}
+nav.tabbar a[aria-current="page"]{color:var(--accent)}
+nav.tabbar a[aria-current="page"]::before{content:"";position:absolute;top:0;left:30%;right:30%;height:3px;border-radius:0 0 3px 3px;background:var(--accent)}
+nav.tabbar .badge{position:absolute;top:6px;left:calc(50% + 6px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--warn);color:var(--surface);font-size:11px;display:grid;place-items:center;font-family:var(--f-num)}
+
+/* vellen */
+dialog{border:0;padding:0;background:transparent;max-width:none;max-height:none;width:100%;height:100%;margin:0}
+dialog::backdrop{background:rgb(0 0 0/.45)}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:88%;display:grid;grid-template-rows:auto auto 1fr;background:var(--surface);color:var(--ink);border-radius:18px 18px 0 0;
+  padding:12px max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));gap:12px;max-width:720px;margin:0 auto}
+.sheet .grip{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto}
+.sheet .scroll{overflow-y:auto;min-height:0;-webkit-overflow-scrolling:touch}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px) + 12px);z-index:20;background:var(--ink);color:var(--bg);
+  padding:12px 16px;border-radius:10px;font-weight:700;font-size:14px;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgb(0 0 0/.25)}
+#toast.err{background:var(--bad);color:#fff}
+video{width:100%;border-radius:10px;background:#000;aspect-ratio:4/3;object-fit:cover;max-width:100%}
+@media (prefers-reduced-motion:no-preference){ .view{animation:in .18s ease-out} @keyframes in{from{opacity:.4;transform:translateY(4px)}} }
+
+/* Dicoon (avatar uit het POCT e-learningportaal) */
+.dicoon{display:grid;grid-template-columns:88px minmax(0,1fr);gap:10px;align-items:end}
+#dicoonFig{display:block;width:88px;height:110px;cursor:pointer;filter:drop-shadow(0 4px 8px rgb(0 0 0/.22))}
+.dc-hands,.dc-thumb{display:none}
+.bubble{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:16px 16px 16px 4px;padding:12px 14px;display:grid;gap:6px;min-width:0;margin-bottom:14px}
+.bubble .who{font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
+.bubble .pl{font-weight:700}
+.bubble button{justify-self:start}
+@media (prefers-reduced-motion:no-preference){
+ #dicoonFig{animation:dcbob 3.2s ease-in-out infinite}
+ .dc-arm{transform-origin:92px 106px;animation:dcwave 4s ease-in-out infinite}
+ .dc-eyes{transform-origin:60px 52px;animation:dcblink 5s infinite}
+ .dc-tail{transform-origin:84px 30px;animation:dctail 3.2s ease-in-out infinite}
+ @keyframes dcbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+ @keyframes dcwave{0%,70%,100%{transform:rotate(0)}80%{transform:rotate(-14deg)}90%{transform:rotate(6deg)}}
+ @keyframes dcblink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+ @keyframes dctail{0%,100%{transform:rotate(0)}50%{transform:rotate(6deg)}}
+}
+</style>
+
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="row">
+      <div class="brand"><b>POCT</b> Onderweg</div>
+      <span class="pill" id="netPill"><span class="dot"></span><span id="netTxt">Online</span></span>
+    </div>
+    <button type="button" class="locbar" id="locBar" aria-haspopup="dialog">
+      <span><span class="lbl">Huidige locatie</span><span class="nm" id="locBarNm">Kies een locatie</span></span>
+      <span class="chev">Wissel</span>
+    </button>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+
+<!-- LOCATIE / START -->
+<section class="view" id="v-locatie">
+  <div class="dicoon" id="dicoon"></div>
+  <div id="startBanner"></div>
+  <div class="panel" id="locCard"></div>
+  <div class="panel">
+    <div class="panel-h"><h2>Vandaag</h2><span class="small muted" id="vandaagDatum"></span></div>
+    <div class="list" id="vandaagList"></div>
+  </div>
+</section>
+
+<!-- AFLEVEREN -->
+<section class="view" id="v-afleveren" hidden>
+  <div class="panel">
+    <div><h2>Reagentia afleveren</h2><p class="sub">Per verpakking of per test. Na opslaan blijft het formulier open voor de volgende regel.</p></div>
+    <form id="levForm" autocomplete="off">
+      <label class="fld"><span>Test / reagens</span><select id="levTest" required></select></label>
+      <div class="fr">
+        <label class="fld"><span>Aantal</span>
+          <div class="cnt"><button type="button" data-step="-1" data-for="levAantal" aria-label="Eén minder">−</button><input id="levAantal" type="number" inputmode="numeric" min="1" step="1" required value="1"><button type="button" data-step="1" data-for="levAantal" aria-label="Eén meer">+</button></div></label>
+        <label class="fld"><span>Eenheid</span><select id="levEenheid"></select></label>
+      </div>
+      <div class="fr">
+        <label class="fld"><span>Lotnummer</span><input id="levLot" autocapitalize="characters" spellcheck="false"></label>
+        <label class="fld"><span>Houdbaar tot</span><input id="levTht" type="date"></label>
+      </div>
+      <button type="button" id="scanBtn" hidden>Scan barcode op verpakking</button>
+      <label class="fld"><span>Afleverdatum</span><input id="levDatum" type="date" required></label>
+      <label class="fld"><span>Opmerking</span><input id="levOpm"></label>
+      <button class="pri block" id="levSave">Levering opslaan</button>
+    </form>
+  </div>
+  <div class="panel"><h3>Eerder afgeleverd op deze locatie</h3><div class="list" id="levList"></div></div>
+</section>
+
+<!-- TELLEN -->
+<section class="view" id="v-tellen" hidden>
+  <div class="panel">
+    <div><h2>Voorraad tellen</h2><p class="sub">Vul alleen de tests in die je geteld hebt. Een lege regel wordt niet opgeslagen.</p></div>
+    <form id="telForm" autocomplete="off">
+      <div class="seg" role="radiogroup" aria-label="Soort telling">
+        <label><input type="radio" name="telSoort" value="telling" checked><span>Kwartaaltelling</span></label>
+        <label><input type="radio" name="telSoort" value="begin"><span>Beginvoorraad</span></label>
+      </div>
+      <label class="fld"><span>Teldatum</span><input id="telDatum" type="date" required></label>
+      <div id="telGrid"></div>
+      <label class="fld"><span>Opmerking</span><input id="telOpm"></label>
+      <button class="pri block">Telling opslaan</button>
+    </form>
+  </div>
+  <div class="panel"><h3>Eerdere tellingen op deze locatie</h3><div class="list" id="telList"></div></div>
+</section>
+
+<!-- QC -->
+<section class="view" id="v-qc" hidden>
+  <div class="panel">
+    <div><h2>QC-resultaat invoeren</h2><p class="sub">Grenzen worden per test, niveau en QC-lot onthouden. Bij een resultaat buiten de grenzen is een actie verplicht.</p></div>
+    <form id="qcForm" autocomplete="off">
+      <label class="fld"><span>Test</span><select id="qcTest" required></select></label>
+      <label class="fld"><span>Analyser (type of serienummer)</span><input id="qcAnalyser" list="qcAnalyserList" placeholder="bijv. Afinion AS100 · SN 12345"><datalist id="qcAnalyserList"></datalist></label>
+      <div class="seg" role="radiogroup" aria-label="QC-niveau" id="qcNiveauSeg">
+        <label><input type="radio" name="qcNiveau" value="Niveau 1" checked><span>Niveau 1</span></label>
+        <label><input type="radio" name="qcNiveau" value="Niveau 2"><span>Niveau 2</span></label>
+        <label><input type="radio" name="qcNiveau" value="Niveau 3"><span>Niveau 3</span></label>
+      </div>
+      <div class="fr">
+        <label class="fld"><span>QC-lot</span><input id="qcLot" autocapitalize="characters" spellcheck="false" required></label>
+        <label class="fld"><span>Datum</span><input id="qcDatum" type="date" required></label>
+      </div>
+      <div id="qcKwant">
+        <div class="fr">
+          <label class="fld"><span>Ondergrens</span><input id="qcMin" type="number" inputmode="decimal" step="any"></label>
+          <label class="fld"><span>Bovengrens</span><input id="qcMax" type="number" inputmode="decimal" step="any"></label>
+        </div>
+        <div class="fr" style="margin-top:12px">
+          <label class="fld"><span>Resultaat</span><input id="qcWaarde" type="number" inputmode="decimal" step="any"></label>
+          <label class="fld"><span>Eenheid</span><input id="qcEenheid"></label>
+        </div>
+      </div>
+      <div id="qcKwal" hidden>
+        <div class="seg" role="radiogroup" aria-label="Resultaat">
+          <label><input type="radio" name="qcKwalRes" value="conform"><span>Conform verwachting</span></label>
+          <label><input type="radio" name="qcKwalRes" value="afwijkend"><span>Afwijkend</span></label>
+        </div>
+      </div>
+      <div class="qcres mute" id="qcStatus">Vul het resultaat in</div>
+      <label class="fld" id="qcActieFld" hidden><span>Genomen actie (verplicht)</span>
+        <select id="qcActie"><option value="">Kies…</option><option>Herhaald, nu binnen grenzen</option><option>Nieuw QC-materiaal gebruikt</option><option>Analyser gereinigd / opnieuw gestart</option><option>Analyser buiten gebruik gesteld</option><option>Leverancier ingeschakeld</option><option>Overleg met laboratorium</option><option>Anders (zie opmerking)</option></select></label>
+      <label class="fld"><span>Opmerking</span><input id="qcOpm"></label>
+      <button class="pri block">QC-resultaat opslaan</button>
+    </form>
+  </div>
+  <div class="panel"><h3>Laatste QC op deze locatie</h3><div class="list" id="qcList"></div></div>
+</section>
+
+<!-- SYNC -->
+<section class="view" id="v-sync" hidden>
+  <div class="panel">
+    <div class="panel-h"><h2>Synchroniseren</h2><span id="syncPill"></span></div>
+    <div class="stat" id="syncStat"></div>
+    <p class="sub" id="syncUitleg"></p>
+    <label class="fld"><span>Doel</span><select id="syncDoel"></select></label>
+    <p class="small muted" id="syncDoelInfo" style="margin:0"></p>
+    <button type="button" class="pri block" id="syncNu">Openstaande records versturen</button>
+    <div id="syncConfirm"></div>
+    <details><summary>Laatste verzendingen</summary><div class="list" id="syncLog"></div></details>
+  </div>
+
+  <div class="panel">
+    <div><h2>Gegevens uit POCT Voorraad</h2><p class="sub">Locaties, analysers/tests en rekenmodel komen uit een back-up (JSON) van POCT Voorraad. Maak daar de back-up via Versies, en lees hem hier in.</p></div>
+    <div class="kv" id="bronInfo"></div>
+    <div><button type="button" class="block" id="bronKies">Back-up van POCT Voorraad inlezen</button><input id="bronFile" type="file" accept=".json,application/json" hidden></div>
+  </div>
+
+  <div class="panel">
+    <h2>Locatie toevoegen</h2>
+    <form id="locNieuw" autocomplete="off">
+      <label class="fld"><span>Naam</span><input id="lnNaam" required></label>
+      <div class="fr">
+        <label class="fld"><span>Soort</span><select id="lnType"></select></label>
+        <label class="fld"><span>Regio</span><select id="lnRegio"></select></label>
+      </div>
+      <button class="block">Locatie toevoegen</button>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>Instellingen</h2>
+    <label class="fld"><span>Jouw naam (komt bij elk record)</span><input id="cfgNaam" autocomplete="name"></label>
+    <label style="display:flex;gap:10px;align-items:center;min-height:44px"><input type="checkbox" id="cfgGrap" style="width:22px;min-height:22px"> Dicoon en de grap van de dag tonen</label>
+    <details id="graphDetails"><summary>Gedeelde map via Microsoft 365</summary>
+      <div style="display:grid;gap:12px">
+        <p class="small muted" style="margin:0">Voor rechtstreeks wegschrijven naar SharePoint of OneDrive. Hiervoor is een app-registratie in jullie Microsoft 365-omgeving nodig (ICT). Laat leeg zolang die er niet is.</p>
+        <label class="fld"><span>Tenant-ID</span><input id="gTenant" spellcheck="false"></label>
+        <label class="fld"><span>Client-ID (app-registratie)</span><input id="gClient" spellcheck="false"></label>
+        <label class="fld"><span>Doelmap (Graph-pad)</span><input id="gPad" spellcheck="false" placeholder="me/drive/root:/POCT-Onderweg"></label>
+      </div>
+    </details>
+    <details><summary>Gegevens op dit apparaat</summary>
+      <div style="display:grid;gap:10px">
+        <p class="small muted" style="margin:0" id="opslagInfo"></p>
+        <button type="button" id="volledigeExport">Volledige back-up van dit apparaat</button>
+        <button type="button" class="danger" id="wisVerzonden">Verzonden records ouder dan 90 dagen opruimen</button>
+      </div>
+    </details>
+    <p class="small muted" style="margin:0" id="versieInfo"></p>
+  </div>
+</section>
+</main>
+
+<nav class="tabbar" aria-label="Onderdelen"><div class="in">
+  <a href="#locatie" data-tab="locatie"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Locatie</a>
+  <a href="#afleveren" data-tab="afleveren"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>Afleveren</a>
+  <a href="#tellen" data-tab="tellen"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Tellen</a>
+  <a href="#qc" data-tab="qc"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.5 15h9"/></svg>QC</a>
+  <a href="#sync" data-tab="sync"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 0 1-14.3 4.9M4 12a8 8 0 0 1 14.3-4.9"/><path d="M18.5 3v4.2h-4.2M5.5 21v-4.2h4.2"/></svg>Sync<span class="badge" id="navBadge" hidden></span></a>
+</div></nav>
+
+<dialog id="locSheet" aria-label="Locatie kiezen"><div class="sheet">
+  <div class="grip"></div>
+  <div style="display:grid;gap:10px">
+    <div class="panel-h"><h2>Locatie kiezen</h2><button type="button" class="ghost sm" data-close>Sluiten</button></div>
+    <input id="locZoek" type="search" placeholder="Zoek op naam" enterkeyhint="search">
+    <div class="chips" id="locRegioChips" aria-label="Regio"></div>
+    <div class="chips" id="locChips" aria-label="Soort locatie"></div>
+  </div>
+  <div class="scroll"><div class="list" id="locLijst"></div></div>
+</div></dialog>
+
+<dialog id="scanSheet" aria-label="Barcode scannen"><div class="sheet">
+  <div class="grip"></div>
+  <div class="panel-h"><h2>Barcode scannen</h2><button type="button" class="ghost sm" data-close>Sluiten</button></div>
+  <div class="scroll"><video id="scanVideo" playsinline muted></video><p class="small muted">Richt de camera op de GS1-barcode (DataMatrix of GS1-128). Lot en houdbaarheidsdatum worden ingevuld.</p></div>
+</div></dialog>
+
+<dialog id="textSheet" aria-label="Bestand"><div class="sheet">
+  <div class="grip"></div>
+  <div class="panel-h"><h2 id="textTitle">Bestand</h2><button type="button" class="ghost sm" data-close>Sluiten</button></div>
+  <div class="scroll" style="display:grid;gap:10px"><p class="small muted" style="margin:0">Opslaan als bestand lukt hier niet. Kopieer de inhoud en bewaar die onder de naam hieronder.</p><code class="mono small" id="textName"></code><textarea id="textBody" rows="10" readonly class="mono small"></textarea><button type="button" class="pri" id="textCopy">Kopiëren</button></div>
+</div></dialog>
+
+<div id="toast" hidden role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ================= hulpfuncties ================= */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const nf=(n,d=0)=>(n==null||!isFinite(n))?"–":Number(n).toLocaleString("nl-NL",{maximumFractionDigits:d});
+const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const fdate=s=>s?new Date(s.slice(0,10)+"T00:00:00Z").toLocaleDateString("nl-NL",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"}):"–";
+const ftime=s=>s?new Date(s).toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"}):"";
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const dagenTot=s=>Math.round((Date.parse(s+"T00:00:00Z")-Date.parse(today()+"T00:00:00Z"))/864e5);
+let toastT;function toast(m,err){const t=$("#toast");t.textContent=m;t.className=err?"err":"";t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,err?5000:2400)}
+const APP_VERSIE="1.0";
+
+/* ================= stamgegevens (overgenomen uit POCT Voorraad 1.1) ================= */
+// Tests/analysers zoals in het rekenmodel van POCT Voorraad: id, naam, GLIMS-namen, norm. Inhoud = tests per verpakking.
+const DEF_TESTS=[["crp","CRP","CRP (POCT)",100],["urine","Urine","Urine (POCT)",100],["glucose","Glucose","Glucose (POCT)|Gluc nu (POCT)",20],["hb","Hb (HemoCue)","Hb (HemoCue)",20],["hba1c","HbA1c","Hba1c (POCT)",100],["chol","Cholesterol / lipiden","Chol (POCT)",50],["ddim","D-dimeer","D-Dim (POCT)",50]]
+  .map(([id,naam,g,normv])=>({id,naam,glims:g.split("|"),norm:normv,tarief:9.69,kosten:4.356,vast:143.91,inhoud:1,actief:true}));
+// QC-eigenschappen per test (eenheid aanpasbaar bij invoer). Urine-strips: kwalitatief.
+const QC_META={crp:{type:"kwant",eenheid:"mg/L"},urine:{type:"kwal"},glucose:{type:"kwant",eenheid:"mmol/L"},hb:{type:"kwant",eenheid:"mmol/L"},hba1c:{type:"kwant",eenheid:"mmol/mol"},chol:{type:"kwant",eenheid:"mmol/L"},ddim:{type:"kwant",eenheid:"µg/L FEU"}};
+const TYPES=["Huisartsenpraktijk","Verloskundigenpraktijk","Verpleeghuis","Polikliniek","Ziekenhuisafdeling","Instelling / zorggroep","Overig"];
+// Regio's. "RS" is de code die POCT Voorraad voor Rijnstate gebruikt; die blijft bewaard zodat gegevens uitwisselbaar blijven.
+const REGIOS=[["Arnhem","Arnhem"],["Ede","Ede"],["Nijmegen","Nijmegen"],["CWZ","CWZ"],["SMK","SMK"],["RS","Rijnstate"],["ZGV","ZGV"]];
+const STD_REGIO="Arnhem"; // locaties zonder regio komen in Arnhem
+const regioNaam=c=>(REGIOS.find(r=>r[0]===c)||[c,c])[1];
+const VOORBEELD=[["Huisartsenpraktijk De Linde","Huisartsenpraktijk","Arnhem"],["Verpleeghuis Het Baken","Verpleeghuis","Arnhem"],["Polikliniek Interne Geneeskunde","Polikliniek","Arnhem"],["Afdeling Spoedeisende Hulp","Ziekenhuisafdeling","Arnhem"],["Verloskundigenpraktijk Zon","Verloskundigenpraktijk","Arnhem"],["Gezondheidscentrum Oost","Huisartsenpraktijk","Arnhem"]];
+
+/* ================= opslag (lokaal, offline-first) ================= */
+const LSKEY="poct-onderweg-v1";
+const COLLS=["leveringen","tellingen","qc"];
+const S={cfg:{naam:"",huidig:"",type:"",doel:"bestand",graph:{tenant:"",client:"",pad:"me/drive/root:/POCT-Onderweg"}},
+  bron:null,inst:null,tests:structuredClone(DEF_TESTS),locaties:{},leveringen:{},tellingen:{},qc:{},qcRef:{},analysers:{},log:[],voorbeeld:false};
+let opslagOk=true;
+function save(){try{localStorage.setItem(LSKEY,JSON.stringify(S))}catch(e){opslagOk=false;toast("Opslaan op dit apparaat mislukt. Maak direct een export.",true)}}
+function load(){try{const j=JSON.parse(localStorage.getItem(LSKEY)||"null");if(j){Object.assign(S,j);S.cfg={...S.cfg,...j.cfg,graph:{...S.cfg.graph,...(j.cfg||{}).graph}}}else seedVoorbeeld()}catch(e){opslagOk=false;seedVoorbeeld()}}
+function migreer(){Object.values(S.locaties).forEach(l=>{if(!l.regio||(l.voorbeeld&&l.regio!==STD_REGIO))l.regio=STD_REGIO})}
+function seedVoorbeeld(){S.voorbeeld=true;VOORBEELD.forEach(([naam,type,regio],i)=>{const id="vb"+i;S.locaties[id]={id,naam,type,regio,actief:true,voorbeeld:true}})}
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+
+const tests=()=>(S.tests||[]).filter(t=>t.actief!==false);
+const testById=id=>(S.tests||[]).find(t=>t.id===id);
+const qcMeta=id=>QC_META[id]||{type:"kwant",eenheid:""};
+const locs=()=>Object.values(S.locaties).filter(l=>l.actief!==false).sort((a,b)=>a.naam.localeCompare(b.naam,"nl"));
+const huidig=()=>S.locaties[S.cfg.huidig]||null;
+const open=()=>COLLS.flatMap(c=>Object.values(S[c]).filter(r=>r.sync!=="verzonden").map(r=>({...r,_c:c})));
+const openLocs=()=>Object.values(S.locaties).filter(l=>l.lokaal&&l.sync!=="verzonden");
+function nieuw(coll,obj){const r={id:uid(),...obj,door:S.cfg.naam||"",aangemaakt:new Date().toISOString(),sync:"nieuw"};S[coll][r.id]=r;save();renderBadge();return r}
+
+/* ================= navigatie ================= */
+const VIEWS=["locatie","afleveren","tellen","qc","sync"];
+function route(){let v=(location.hash||"").slice(1);if(!VIEWS.includes(v))v="locatie";
+  VIEWS.forEach(x=>$("#v-"+x).hidden=x!==v);$$("nav.tabbar a").forEach(a=>{if(a.dataset.tab===v)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
+  render(v);if((v==="afleveren"||v==="tellen"||v==="qc")&&!huidig())openLocSheet();window.scrollTo(0,0)}
+addEventListener("hashchange",route);
+
+/* ================= locatie kiezen ================= */
+function openLocSheet(){$("#locZoek").value="";renderLocSheet();const d=$("#locSheet");if(!d.open)d.showModal()}
+function renderLocSheet(){const q=$("#locZoek").value.trim().toLowerCase(),ty=S.cfg.type,rg=S.cfg.regio||"";
+  $("#locRegioChips").innerHTML=[["","Alle regio's"],...REGIOS].map(([v,l])=>`<button type="button" class="chip" data-regio="${esc(v)}" aria-pressed="${rg===v}">${esc(l)}</button>`).join("");
+  const aanw=new Set(locs().map(l=>l.type).filter(Boolean));
+  $("#locChips").innerHTML=[["","Alle soorten"],...TYPES.filter(t=>aanw.has(t)).map(t=>[t,t])].map(([v,l])=>`<button type="button" class="chip" data-type="${esc(v)}" aria-pressed="${ty===v}">${esc(l)}</button>`).join("");
+  const L=locs().filter(l=>(!ty||l.type===ty)&&(!rg||l.regio===rg)&&(!q||l.naam.toLowerCase().includes(q)));
+  const recent=[...new Set([...open()].sort((a,b)=>b.aangemaakt.localeCompare(a.aangemaakt)).map(r=>r.locId))];
+  L.sort((a,b)=>{const ra=recent.indexOf(a.id),rb=recent.indexOf(b.id);return(ra<0?999:ra)-(rb<0?999:rb)||a.naam.localeCompare(b.naam,"nl")});
+  $("#locLijst").innerHTML=L.length?L.map(l=>`<button type="button" class="item" data-kies="${l.id}"><span class="ini${l.id===S.cfg.huidig?" on":""}">${esc(initialen(l.naam))}</span><span class="main"><span class="t">${esc(l.naam)}</span><span class="s">${esc([l.type,l.regio&&regioNaam(l.regio)].filter(Boolean).join(" · "))}${l.voorbeeld?" · voorbeeld":""}</span></span></button>`).join(""):`<p class="empty">Geen locaties gevonden. Voeg er een toe onder Sync, of lees een back-up van POCT Voorraad in.</p>`}
+const initialen=n=>n.replace(/[^\p{L}\s]/gu," ").split(/\s+/).filter(w=>w&&!/^(de|het|van|en|der)$/i.test(w)).slice(0,2).map(w=>w[0].toUpperCase()).join("")||"?";
+function kiesLoc(id){S.cfg.huidig=id;save();$("#locSheet").close();renderLocBar();route();toast("Locatie: "+S.locaties[id].naam)}
+function renderLocBar(){const l=huidig();$("#locBarNm").textContent=l?l.naam:"Kies een locatie"}
+
+/* ================= weergaven ================= */
+function render(v){renderLocBar();renderBadge();({locatie:renderLocatie,afleveren:renderLev,tellen:renderTel,qc:renderQc,sync:renderSync})[v]()}
+const recsLoc=(c,lid)=>Object.values(S[c]).filter(r=>r.locId===lid).sort((a,b)=>(b.datum+b.aangemaakt).localeCompare(a.datum+a.aangemaakt));
+const syncTag=r=>r.sync==="verzonden"?`<span class="tag mute">verzonden</span>`:`<span class="tag warn">nog versturen</span>`;
+const ICON={lev:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>',
+  tel:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+  qc:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.5 15h9"/></svg>'};
+
+function renderLocatie(){renderDicoon();
+  const b=$("#startBanner");
+  b.innerHTML=S.voorbeeld&&!S.bron?`<div class="banner"><div><b>Voorbeeldlocaties.</b> Lees een back-up van POCT Voorraad in om jullie eigen locaties en analysers te laden.</div><div><button type="button" class="sm" onclick="location.hash='sync'">Naar gegevens</button></div></div>`:"";
+  const l=huidig();
+  if(!l){$("#locCard").innerHTML=`<h2>Waar ben je?</h2><p class="sub">Kies de praktijk, het verpleeghuis, de poli of de afdeling waar je nu bent. Daarna kun je afleveren, tellen en QC invoeren.</p><button type="button" class="pri block" onclick="openLocSheet()">Locatie kiezen</button>`}
+  else{
+    const lev=recsLoc("leveringen",l.id),tel=recsLoc("tellingen",l.id),qc=recsLoc("qc",l.id);
+    const lt=tel[0],lq=qc[0];
+    const tht=lev.filter(r=>r.tht&&dagenTot(r.tht)<=60).sort((a,b)=>a.tht.localeCompare(b.tht));
+    const qcBad=qc.filter(r=>r.datum===today()&&r.status==="buiten");
+    $("#locCard").innerHTML=`<div><h2>${esc(l.naam)}</h2><p class="sub">${esc([l.type,l.regio&&"regio "+regioNaam(l.regio),l.contact].filter(Boolean).join(" · "))}</p></div>
+      <div class="actions">
+        <button type="button" class="act" onclick="location.hash='afleveren'">${ICON.lev}Afleveren</button>
+        <button type="button" class="act" onclick="location.hash='tellen'">${ICON.tel}Tellen</button>
+        <button type="button" class="act" onclick="location.hash='qc'">${ICON.qc}QC</button>
+      </div>
+      <dl class="kv">
+        <dt>Laatste levering</dt><dd>${lev[0]?fdate(lev[0].datum)+" · "+esc(testById(lev[0].testId)?.naam||lev[0].testId):"–"}</dd>
+        <dt>Laatste telling</dt><dd>${lt?fdate(lt.datum):"–"}</dd>
+        <dt>Laatste QC</dt><dd>${lq?fdate(lq.datum)+" · "+qcTag(lq):"–"}</dd>
+      </dl>
+      ${tht.length?`<div class="banner"><div><b>Houdbaarheid:</b> ${tht.slice(0,4).map(r=>`${esc(testById(r.testId)?.naam||"")} lot ${esc(r.lot||"–")} tot ${fdate(r.tht)}${dagenTot(r.tht)<0?" (verlopen)":""}`).join("; ")}</div></div>`:""}
+      ${qcBad.length?`<div class="banner" style="background:var(--bad-soft)"><div><b style="color:var(--bad)">QC buiten grenzen vandaag:</b> ${qcBad.map(r=>esc(testById(r.testId)?.naam||"")+" "+esc(r.niveau)).join(", ")}</div></div>`:""}`}
+  $("#vandaagDatum").textContent=fdate(today());
+  const V=COLLS.flatMap(c=>Object.values(S[c]).filter(r=>(r.aangemaakt||"").slice(0,10)===today()).map(r=>({...r,_c:c}))).sort((a,b)=>b.aangemaakt.localeCompare(a.aangemaakt));
+  $("#vandaagList").innerHTML=V.length?V.map(r=>regel(r,true)).join(""):`<p class="empty">Nog niets geregistreerd vandaag.</p>`}
+
+function qcTag(r){return r.status==="binnen"?`<span class="tag ok">binnen grenzen</span>`:r.status==="buiten"?`<span class="tag bad">buiten grenzen</span>`:`<span class="tag mute">geen grenzen</span>`}
+function regel(r,metLoc){const t=testById(r.testId),tn=esc(t?.naam||r.testId),loc=metLoc?esc(S.locaties[r.locId]?.naam||"")+" · ":"";
+  let titel,sub;
+  if(r._c==="leveringen"||(!r._c&&"lot" in r&&!("niveau" in r)&&!("soort" in r))){titel=`${nf(r.aantal)} × ${tn}`;sub=`Levering · ${loc}${r.lot?"lot "+esc(r.lot)+" · ":""}${r.tht?"tht "+fdate(r.tht):fdate(r.datum)}`}
+  else if(r._c==="tellingen"||"soort" in r){titel=`${tn}: ${nf(r.aantal)} geteld`;sub=`${r.soort==="begin"?"Beginvoorraad":"Telling"} · ${loc}${fdate(r.datum)}`}
+  else{titel=`${tn} ${esc(r.niveau)}: ${r.waarde!=null&&r.waarde!==""?esc(nf(r.waarde,3)+" "+(r.eenheid||"")):esc(r.kwal||"")}`;sub=`QC · ${loc}${qcTag(r)}${r.actie?" · "+esc(r.actie):""}`}
+  return`<div class="item"><span class="main"><span class="t">${titel}</span><span class="s">${sub}</span></span><span style="display:grid;justify-items:end;gap:4px">${syncTag(r)}${r.sync!=="verzonden"?`<button type="button" class="ghost sm danger" data-wis="${r._c||""}|${r.id}">Verwijderen</button>`:`<span class="small muted mono">${ftime(r.aangemaakt)}</span>`}</span></div>`}
+
+/* ---------- afleveren ---------- */
+function fillTests(sel,keep){const v=keep??sel.value;sel.innerHTML=tests().map(t=>`<option value="${t.id}">${esc(t.naam)}</option>`).join("");if(v&&testById(v))sel.value=v}
+function updEenheid(){const t=testById($("#levTest").value),inh=t?+t.inhoud||1:1,v=$("#levEenheid").value;
+  $("#levEenheid").innerHTML=`<option value="test">tests</option>`+(inh>1?`<option value="verp">verpakkingen à ${inh}</option>`:"");if(v==="verp"&&inh>1)$("#levEenheid").value="verp"}
+function renderLev(){fillTests($("#levTest"));updEenheid();if(!$("#levDatum").value)$("#levDatum").value=today();
+  const l=huidig();$("#levList").innerHTML=l?(recsLoc("leveringen",l.id).slice(0,8).map(r=>regel({...r,_c:"leveringen"})).join("")||`<p class="empty">Nog geen leveringen.</p>`):"";
+  $("#scanBtn").hidden=!("BarcodeDetector" in window)}
+$("#levTest").addEventListener("change",updEenheid);
+$("#levForm").addEventListener("submit",e=>{e.preventDefault();const l=huidig(),t=testById($("#levTest").value);if(!l){openLocSheet();return}if(!t)return;
+  let n=Math.round(+$("#levAantal").value);if(!(n>0)){toast("Vul een aantal in.",true);return}
+  const verp=$("#levEenheid").value==="verp";if(verp)n*=+t.inhoud||1;
+  nieuw("leveringen",{locId:l.id,testId:t.id,datum:$("#levDatum").value,aantal:n,lot:$("#levLot").value.trim(),tht:$("#levTht").value||"",opmerking:$("#levOpm").value.trim()});
+  toast(`Opgeslagen: ${nf(n)} × ${t.naam}`);["#levLot","#levTht","#levOpm"].forEach(s=>$(s).value="");$("#levAantal").value=1;renderLev()});
+
+/* ---------- barcode (GS1) ---------- */
+function parseGS1(raw){const s=String(raw).replace(/^\][A-Za-z]\d/,"").replace(/[()]/g,m=>m==="("?"\x1d":"");const out={};let i=0;const GS="\x1d";
+  const FIX={"00":18,"01":14,"02":14,"11":6,"12":6,"13":6,"15":6,"16":6,"17":6,"20":2};
+  while(i<s.length){if(s[i]===GS){i++;continue}const ai=s.substr(i,2);i+=2;
+    if(FIX[ai]){out[ai]=s.substr(i,FIX[ai]);i+=FIX[ai]}
+    else if(ai==="10"||ai==="21"||ai==="24"||ai==="30"||ai==="91"){let j=s.indexOf(GS,i);if(j<0)j=s.length;out[ai]=s.slice(i,j);i=j}
+    else break}
+  if(out["17"]){const[y,m,d]=[out["17"].slice(0,2),out["17"].slice(2,4),out["17"].slice(4,6)];let dd=d==="00"?String(new Date(Date.UTC(2000+ +y,+m,0)).getUTCDate()).padStart(2,"0"):d;out.tht=`20${y}-${m}-${dd}`}
+  return out}
+let scanStream=null,scanLoop=0;
+async function startScan(){const d=$("#scanSheet");d.showModal();
+  try{const bd=new BarcodeDetector({formats:["data_matrix","code_128","qr_code","ean_13"]});
+    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});const v=$("#scanVideo");v.srcObject=scanStream;await v.play();
+    const tick=async()=>{if(!d.open)return;try{const r=await bd.detect(v);if(r.length){const g=parseGS1(r[0].rawValue);
+      if(g["10"])$("#levLot").value=g["10"];if(g.tht)$("#levTht").value=g.tht;
+      toast(g["10"]||g.tht?`Gescand: ${g["10"]?"lot "+g["10"]:""}${g.tht?" · tht "+fdate(g.tht):""}`:"Barcode gelezen, maar zonder lot of datum.");stopScan();return}}catch(e){}scanLoop=requestAnimationFrame(tick)};tick()}
+  catch(e){stopScan();toast("Camera niet beschikbaar. Vul lot en datum handmatig in.",true)}}
+function stopScan(){cancelAnimationFrame(scanLoop);if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null}const d=$("#scanSheet");if(d.open)d.close()}
+$("#scanBtn").addEventListener("click",startScan);
+$("#scanSheet").addEventListener("close",stopScan);
+
+/* ---------- tellen ---------- */
+function renderTel(){if(!$("#telDatum").value)$("#telDatum").value=today();const l=huidig();
+  const prev=$$("[data-tel]").reduce((o,i)=>(o[i.dataset.tel]=i.value,o),{});
+  $("#telGrid").innerHTML=tests().map(t=>{const vorige=l?recsLoc("tellingen",l.id).find(r=>r.testId===t.id):null;const inh=+t.inhoud||1;
+    return`<div class="tel-row"><div class="hd"><b>${esc(t.naam)}</b><span class="small muted">${vorige?"vorige: "+nf(vorige.aantal)+" op "+fdate(vorige.datum):"nog niet geteld"}</span></div>
+    <div class="${inh>1?"fr":""}"><div class="cnt"><button type="button" data-step="-1" data-for="tel_${t.id}" aria-label="Eén minder ${esc(t.naam)}">−</button><input id="tel_${t.id}" data-tel="${t.id}" type="number" inputmode="numeric" min="0" step="1" placeholder="–" value="${esc(prev[t.id]??"")}" aria-label="Geteld ${esc(t.naam)}"><button type="button" data-step="1" data-for="tel_${t.id}" aria-label="Eén meer ${esc(t.naam)}">+</button></div>
+    ${inh>1?`<select data-eh="${t.id}" aria-label="Eenheid ${esc(t.naam)}"><option value="test">tests</option><option value="verp">verpakkingen à ${inh}</option></select>`:""}</div></div>`}).join("");
+  $("#telList").innerHTML=l?(recsLoc("tellingen",l.id).slice(0,10).map(r=>regel({...r,_c:"tellingen"})).join("")||`<p class="empty">Nog geen tellingen.</p>`):""}
+$("#telForm").addEventListener("submit",e=>{e.preventDefault();const l=huidig();if(!l){openLocSheet();return}let n=0;
+  const soort=document.querySelector("[name=telSoort]:checked").value,ds=$("#telDatum").value;
+  for(const inp of $$("[data-tel]")){if(inp.value==="")continue;const t=testById(inp.dataset.tel);let v=Math.round(+inp.value);if(!(v>=0))continue;
+    const eh=document.querySelector(`[data-eh="${t.id}"]`);if(eh&&eh.value==="verp")v*=+t.inhoud||1;
+    nieuw("tellingen",{locId:l.id,testId:t.id,datum:ds,aantal:v,soort,opmerking:$("#telOpm").value.trim()});n++}
+  if(!n){toast("Vul bij minstens één test het getelde aantal in.",true);return}
+  $$("[data-tel]").forEach(i=>i.value="");$("#telOpm").value="";toast(`Telling opgeslagen voor ${n} test${n>1?"s":""}`);renderTel()});
+
+/* ---------- QC ---------- */
+const refKey=()=>`${$("#qcTest").value}|${document.querySelector("[name=qcNiveau]:checked").value}|${$("#qcLot").value.trim().toUpperCase()}`;
+function renderQc(){const l=huidig();fillTests($("#qcTest"));if(!$("#qcDatum").value)$("#qcDatum").value=today();qcTestChange(true);
+  $("#qcList").innerHTML=l?(recsLoc("qc",l.id).slice(0,10).map(r=>regel({...r,_c:"qc"})).join("")||`<p class="empty">Nog geen QC-resultaten.</p>`):""}
+function qcTestChange(zacht){const tid=$("#qcTest").value,m=qcMeta(tid),l=huidig();
+  $("#qcKwant").hidden=m.type!=="kwant";$("#qcKwal").hidden=m.type!=="kwal";
+  if(!zacht||!$("#qcEenheid").value)$("#qcEenheid").value=m.eenheid||"";
+  const ak=l?`${l.id}|${tid}`:"";if(ak&&S.analysers[ak]&&(!zacht||!$("#qcAnalyser").value))$("#qcAnalyser").value=S.analysers[ak];
+  $("#qcAnalyserList").innerHTML=[...new Set(Object.values(S.analysers))].map(a=>`<option value="${esc(a)}">`).join("");
+  // laatst gebruikte QC-lot voor deze test
+  if(!zacht){const last=Object.values(S.qc).filter(r=>r.testId===tid).sort((a,b)=>b.aangemaakt.localeCompare(a.aangemaakt))[0];$("#qcLot").value=last?.qcLot||""}
+  qcRefFill();qcEval()}
+function qcRefFill(){const r=S.qcRef[refKey()];if(r){$("#qcMin").value=r.min??"";$("#qcMax").value=r.max??"";if(r.eenheid)$("#qcEenheid").value=r.eenheid}}
+function qcEval(){const m=qcMeta($("#qcTest").value),el=$("#qcStatus");let st=null;
+  if(m.type==="kwal"){const k=document.querySelector("[name=qcKwalRes]:checked");st=k?(k.value==="conform"?"binnen":"buiten"):null;
+    el.className="qcres "+(st==="binnen"?"ok":st==="buiten"?"bad":"mute");el.textContent=st==="binnen"?"Conform verwachting":st==="buiten"?"Afwijkend: actie vereist":"Kies het resultaat"}
+  else{const w=$("#qcWaarde").value,mi=$("#qcMin").value,ma=$("#qcMax").value;
+    if(w===""){el.className="qcres mute";el.textContent="Vul het resultaat in"}
+    else if(mi===""&&ma===""){st="geen";el.className="qcres mute";el.textContent="Geen grenzen ingevuld: resultaat wordt zonder beoordeling opgeslagen"}
+    else{const v=+w;st=(mi===""||v>=+mi)&&(ma===""||v<=+ma)?"binnen":"buiten";el.className="qcres "+(st==="binnen"?"ok":"bad");
+      el.textContent=st==="binnen"?`Binnen grenzen (${mi||"–"} – ${ma||"–"})`:`Buiten grenzen (${mi||"–"} – ${ma||"–"}): actie vereist`}}
+  $("#qcActieFld").hidden=st!=="buiten";$("#qcActie").required=st==="buiten";return st}
+$("#qcTest").addEventListener("change",()=>qcTestChange(false));
+$("#qcLot").addEventListener("change",qcRefFill);
+$("#qcForm").addEventListener("change",e=>{if(e.target.name==="qcNiveau")qcRefFill();qcEval()});
+$("#qcForm").addEventListener("input",qcEval);
+$("#qcForm").addEventListener("submit",e=>{e.preventDefault();const l=huidig();if(!l){openLocSheet();return}
+  const tid=$("#qcTest").value,m=qcMeta(tid),st=qcEval();
+  if(!st){toast(m.type==="kwal"?"Kies het resultaat.":"Vul het resultaat in.",true);return}
+  if(st==="buiten"&&!$("#qcActie").value){toast("Kies welke actie je genomen hebt.",true);$("#qcActie").focus();return}
+  const niveau=document.querySelector("[name=qcNiveau]:checked").value,lot=$("#qcLot").value.trim().toUpperCase();
+  const rec={locId:l.id,testId:tid,datum:$("#qcDatum").value,analyser:$("#qcAnalyser").value.trim(),niveau,qcLot:lot,status:st,actie:st==="buiten"?$("#qcActie").value:"",opmerking:$("#qcOpm").value.trim()};
+  if(m.type==="kwal")rec.kwal=document.querySelector("[name=qcKwalRes]:checked").value;
+  else Object.assign(rec,{waarde:+$("#qcWaarde").value,eenheid:$("#qcEenheid").value.trim(),min:$("#qcMin").value===""?null:+$("#qcMin").value,max:$("#qcMax").value===""?null:+$("#qcMax").value});
+  if(m.type==="kwant"&&(rec.min!=null||rec.max!=null))S.qcRef[refKey()]={min:rec.min,max:rec.max,eenheid:rec.eenheid};
+  if(rec.analyser)S.analysers[`${l.id}|${tid}`]=rec.analyser;
+  nieuw("qc",rec);toast(st==="buiten"?"QC opgeslagen als afwijkend":"QC-resultaat opgeslagen",st==="buiten");
+  $("#qcWaarde").value="";$("#qcOpm").value="";$("#qcActie").value="";$$("[name=qcKwalRes]").forEach(r=>r.checked=false);
+  // volgende niveau voorselecteren
+  const nv=$$("[name=qcNiveau]"),i=nv.findIndex(r=>r.checked);if(i<nv.length-1){nv[i+1].checked=true}qcRefFill();renderQc()});
+
+/* ================= sync-laag =================
+   Records krijgen sync:"nieuw" en gaan naar een wachtrij. Een "doel" (adapter) verstuurt een pakket.
+   Elk doel heeft: naam, info(), kan(), stuur(pakket) -> {ok, bevestigen}. Nieuwe doelen (SharePoint-map, server) passen in dit patroon. */
+function pakket(){const recs=open();const per=c=>recs.filter(r=>r._c===c).map(({_c,sync,verzonden,...r})=>r);
+  return{app:"poct-onderweg",versie:1,gemaakt:new Date().toISOString(),door:S.cfg.naam||"",apparaat:navigator.userAgent.slice(0,120),
+    leveringen:per("leveringen"),tellingen:per("tellingen"),qc:per("qc"),locaties:openLocs().map(({sync,verzonden,lokaal,...l})=>l),_ids:recs.map(r=>r._c+"|"+r.id),_locIds:openLocs().map(l=>l.id)}}
+// Formaat dat POCT Voorraad via "Back-up terugzetten" kan inlezen (zelfde velden als daar).
+// Zonder ingelezen instellingen zou POCT Voorraad bij terugzetten het rekenmodel op standaard zetten; dan een eigen app-kenmerk zodat Voorraad het weigert.
+function voorraadJson(p){return JSON.stringify({app:S.inst?"poct-voorraad":"poct-onderweg",versie:1,gemaakt:p.gemaakt,bron:"POCT Onderweg",instellingen:S.inst,locaties:p.locaties,leveringen:p.leveringen,tellingen:p.tellingen,qc:p.qc},null,1)}
+const csvCell=v=>{v=v==null?"":String(v);return/[";\n]/.test(v)?`"${v.replace(/"/g,'""')}"`:v};
+function qcCsv(p){const H=["datum","locatie","test","analyser","niveau","qc_lot","resultaat","eenheid","ondergrens","bovengrens","status","actie","opmerking","door","vastgelegd"];
+  return"﻿"+[H,...p.qc.map(r=>[r.datum,S.locaties[r.locId]?.naam||r.locId,testById(r.testId)?.naam||r.testId,r.analyser,r.niveau,r.qcLot,r.waarde??r.kwal,r.eenheid,r.min,r.max,r.status,r.actie,r.opmerking,r.door,r.aangemaakt])].map(r=>r.map(csvCell).join(";")).join("\r\n")}
+const stamp=()=>new Date().toISOString().slice(0,16).replace(/[:T]/g,"").replace(/^(\d{8})/,"$1-");
+const naamSlug=()=>(S.cfg.naam||"coordinator").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+
+async function bewaarBestanden(files){ // files: [{naam, tekst, type}]
+  const F=files.map(f=>new File([f.tekst],f.naam,{type:f.type}));
+  try{if(navigator.canShare&&navigator.canShare({files:F})){await navigator.share({files:F,title:"POCT Onderweg"});return"gedeeld"}}catch(e){if(e.name==="AbortError")return null}
+  try{for(const f of F){const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000)}}catch(e){}
+  return"gedownload"}
+function toonTekst(naam,tekst){$("#textTitle").textContent="Export";$("#textName").textContent=naam;$("#textBody").value=tekst;$("#textSheet").showModal()}
+
+const DOELEN={
+  bestand:{naam:"Bestand delen of opslaan (OneDrive, SharePoint, Teams, mail)",
+    info:()=>("canShare" in navigator?"Je telefoon opent het deelmenu: kies de OneDrive-, SharePoint- of Teams-app en de gedeelde map.":"Het bestand wordt gedownload. Zet het daarna in de gedeelde map.")+(S.inst?" Twee bestanden: een JSON die POCT Voorraad kan terugzetten en een CSV met QC-resultaten.":" Let op: lees eerst een back-up van POCT Voorraad in, anders kan POCT Voorraad het JSON-bestand niet terugzetten."),
+    kan:()=>true,
+    async stuur(p){const base=`poct-onderweg_${naamSlug()}_${stamp()}`;const files=[{naam:base+".json",tekst:voorraadJson(p),type:"application/json"}];
+      if(p.qc.length)files.push({naam:base+"_qc.csv",tekst:qcCsv(p),type:"text/csv"});
+      const r=await bewaarBestanden(files);if(!r)return{ok:false};lastFiles=files;return{ok:true,bevestigen:true,wat:r}}},
+  graph:{naam:"Gedeelde map via Microsoft 365 (direct)",
+    info:()=>S.cfg.graph.client?`Schrijft naar ${S.cfg.graph.pad}. Je logt in met je werkaccount.`:"Nog niet ingesteld. Vul onder Instellingen de gegevens van de app-registratie in.",
+    kan:()=>!!(S.cfg.graph.client&&S.cfg.graph.tenant&&navigator.onLine),
+    async stuur(p){const tok=await graphToken();const base=`poct-onderweg_${naamSlug()}_${stamp()}`;
+      const put=async(naam,tekst,type)=>{const r=await fetch(`https://graph.microsoft.com/v1.0/${S.cfg.graph.pad.replace(/^\/|\/$/g,"")}/${encodeURIComponent(naam)}:/content`,{method:"PUT",headers:{Authorization:"Bearer "+tok,"Content-Type":type},body:tekst});if(!r.ok)throw new Error("Upload mislukt ("+r.status+")")};
+      await put(base+".json",voorraadJson(p),"application/json");if(p.qc.length)await put(base+"_qc.csv",qcCsv(p),"text/csv");return{ok:true,bevestigen:false}}}
+};
+let lastFiles=null;
+let msal=null;
+async function graphToken(){
+  if(!window.msal){await new Promise((ok,nok)=>{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.39.0/lib/msal-browser.min.js";s.onload=ok;s.onerror=()=>nok(new Error("Inlogmodule niet geladen"));document.head.append(s)})}
+  if(!msal){msal=new window.msal.PublicClientApplication({auth:{clientId:S.cfg.graph.client,authority:"https://login.microsoftonline.com/"+S.cfg.graph.tenant,redirectUri:location.origin+location.pathname},cache:{cacheLocation:"localStorage"}});await msal.initialize?.()}
+  const scopes=["Files.ReadWrite","Sites.ReadWrite.All"];const acc=msal.getAllAccounts()[0];
+  try{if(acc)return(await msal.acquireTokenSilent({scopes,account:acc})).accessToken}catch(e){}
+  return(await msal.loginPopup({scopes})).accessToken}
+
+function markeer(p){const nu=new Date().toISOString();p._ids.forEach(k=>{const[c,id]=k.split("|");if(S[c][id]){S[c][id].sync="verzonden";S[c][id].verzonden=nu}});
+  p._locIds.forEach(id=>{if(S.locaties[id]){S.locaties[id].sync="verzonden"}});
+  S.log.unshift({t:nu,doel:S.cfg.doel,n:p._ids.length});S.log=S.log.slice(0,30);save();renderBadge()}
+let wachtend=null;
+async function syncNu(){const p=pakket();if(!p._ids.length&&!p._locIds.length){toast("Niets te versturen.");return}
+  const d=DOELEN[S.cfg.doel]||DOELEN.bestand;if(!d.kan()){toast(navigator.onLine?"Dit doel is nog niet ingesteld.":"Geen internet. Probeer het later of kies Bestand.",true);return}
+  $("#syncNu").disabled=true;
+  try{const r=await d.stuur(p);if(!r.ok)return;
+    if(r.bevestigen){wachtend=p;$("#syncConfirm").innerHTML=`<div class="banner"><div><b>Staat het bestand in de gedeelde map?</b> Bevestig pas als je het daar hebt opgeslagen; dan worden ${p._ids.length} records als verzonden gemarkeerd.</div>
+      <div class="btns"><button type="button" class="pri sm" id="bevestig">Ja, opgeslagen</button><button type="button" class="sm" id="alsTekst">Toon als tekst</button></div></div>`}
+    else{markeer(p);toast(`${p._ids.length} records verstuurd`);renderSync()}}
+  catch(e){toast("Versturen mislukt: "+(e.message||e),true)}
+  finally{$("#syncNu").disabled=false}}
+
+function renderBadge(){const n=open().length+openLocs().length,b=$("#navBadge");b.hidden=!n;b.textContent=n>99?"99+":n}
+function renderSync(){const O=open();const c=k=>O.filter(r=>r._c===k).length;
+  $("#syncStat").innerHTML=`<div><b>${c("leveringen")}</b><span>leveringen</span></div><div><b>${c("tellingen")}</b><span>tellingen</span></div><div><b>${c("qc")}</b><span>QC-resultaten</span></div>`;
+  const n=O.length+openLocs().length;$("#syncPill").innerHTML=n?`<span class="pill due">${n} nog versturen</span>`:`<span class="pill ok">Alles verstuurd</span>`;
+  $("#syncUitleg").textContent="Alles wordt eerst op dit apparaat bewaard, ook zonder internet. Verstuur aan het eind van je ronde.";
+  $("#syncDoel").innerHTML=Object.entries(DOELEN).map(([k,d])=>`<option value="${k}">${esc(d.naam)}</option>`).join("");$("#syncDoel").value=S.cfg.doel in DOELEN?S.cfg.doel:"bestand";
+  $("#syncDoelInfo").textContent=(DOELEN[S.cfg.doel]||DOELEN.bestand).info();$("#syncNu").disabled=!n;
+  $("#syncLog").innerHTML=S.log.length?S.log.map(l=>`<div class="item"><span class="main"><span class="t">${l.n} records</span><span class="s">${fdate(l.t)} ${ftime(l.t)} · ${esc((DOELEN[l.doel]||{}).naam||l.doel)}</span></span></div>`).join(""):`<p class="empty">Nog niets verstuurd.</p>`;
+  const b=S.bron;$("#bronInfo").innerHTML=b?`<dt>Bestand</dt><dd>${esc(b.bestand)}</dd><dt>Ingelezen</dt><dd>${fdate(b.datum)}${dagenTot(b.datum.slice(0,10))<-14?' <span class="tag warn">ouder dan 2 weken</span>':""}</dd><dt>Locaties</dt><dd>${b.locaties}</dd><dt>Tests</dt><dd>${esc(tests().map(t=>t.naam).join(", "))}</dd>`
+    :`<dt>Status</dt><dd>Nog niet ingelezen. Nu: voorbeeldlocaties en de standaardtests uit POCT Voorraad (${esc(tests().map(t=>t.naam).join(", "))}).</dd>`;
+  $("#lnRegio").innerHTML=REGIOS.map(([v,l])=>`<option value="${v}"${v===STD_REGIO?" selected":""}>${esc(l)}</option>`).join("");
+  $("#lnType").innerHTML=TYPES.map(t=>`<option>${esc(t)}</option>`).join("");
+  $("#cfgNaam").value=S.cfg.naam;$("#cfgGrap").checked=!S.cfg.geenGrap;$("#gTenant").value=S.cfg.graph.tenant;$("#gClient").value=S.cfg.graph.client;$("#gPad").value=S.cfg.graph.pad;
+  const tot=COLLS.reduce((a,c)=>a+Object.keys(S[c]).length,0);let kb=0;try{kb=Math.round((localStorage.getItem(LSKEY)||"").length/1024)}catch(e){}
+  $("#opslagInfo").textContent=opslagOk?`${tot} records en ${Object.keys(S.locaties).length} locaties op dit apparaat (${kb} kB).`:"Opslag op dit apparaat werkt niet (privévenster?). Gegevens gaan verloren bij sluiten: verstuur direct.";
+  $("#versieInfo").textContent=`POCT Onderweg ${APP_VERSIE} · gegevensformaat compatibel met POCT Voorraad 1.1`}
+
+/* ---------- inlezen POCT Voorraad back-up ---------- */
+async function leesBron(file){let j;try{j=JSON.parse(await file.text())}catch(e){toast("Dit is geen geldig JSON-bestand.",true);return}
+  if(j.app!=="poct-voorraad"){toast("Dit is geen back-up van POCT Voorraad.",true);return}
+  const L=j.locaties||[];if(!L.length&&!j.instellingen){toast("Geen locaties of instellingen in deze back-up.",true);return}
+  // voorbeeldlocaties weg, lokaal aangemaakte locaties behouden
+  const inGebruik=new Set(COLLS.flatMap(c=>Object.values(S[c]).map(r=>r.locId)));
+  Object.values(S.locaties).forEach(l=>{if(!l.lokaal&&!inGebruik.has(l.id))delete S.locaties[l.id]});
+  L.forEach(l=>{S.locaties[l.id]={id:l.id,naam:l.naam,type:l.type||"",regio:l.regio||STD_REGIO,contact:l.contact||"",actief:l.actief!==false}});
+  if(j.instellingen){S.inst=j.instellingen;if(Array.isArray(j.instellingen.tests)&&j.instellingen.tests.length)S.tests=j.instellingen.tests}
+  // historie uit back-up meenemen als al verzonden (voor "vorige telling" en houdbaarheid)
+  ["leveringen","tellingen"].forEach(c=>(j[c]||[]).forEach(r=>{if(!S[c][r.id])S[c][r.id]={...r,sync:"verzonden",uitBron:true}}));
+  if(S.cfg.huidig&&!S.locaties[S.cfg.huidig])S.cfg.huidig="";
+  S.voorbeeld=false;S.bron={bestand:file.name,datum:new Date().toISOString(),locaties:L.length};save();renderSync();renderLocBar();toast(`${L.length} locaties en ${S.tests.length} tests ingelezen`)}
+
+
+/* ================= Dicoon: elke dag een nieuwe grap ================= */
+const LABGRAPPEN=[
+["Waarom nam de glucosemeter vrij?","Hij had last van suikerpieken in zijn agenda."],
+["Wat zegt een reageerbuis tegen een andere reageerbuis?","Zullen we samen iets laten reageren?"],
+["Waarom is een QC-lot nooit eenzaam?","Er zit altijd wel een niveau 2 in de buurt."],
+["Hoe noem je een CRP die altijd laag is?","Een rustig type, geen ontsteking aan."],
+["Waarom wilde de HemoCue niet discussiëren?","Hij wist precies hoeveel bloed het hem zou kosten."],
+["Wat doet een POCT-coördinator op vakantie?","De zonnebrandcrème tellen en het lotnummer noteren."],
+["Waarom ging de pipet naar de psycholoog?","Hij kon niets meer loslaten."],
+["Wat is het lievelingsliedje van een D-dimeer?","Stolling in the deep."],
+["Waarom zijn urinestrips zo goed in kaarten?","Ze laten nooit hun kleur zien voordat het tijd is."],
+["Wat zei de analyser na een kalibratie?","Ik voel me weer helemaal mezelf."],
+["Waarom kwam de cholesterol niet op het feestje?","Hij was bang dat het te vet zou worden."],
+["Wat is het verschil tussen een grap en een uitgelopen reagens?","De grap is nog houdbaar."],
+["Waarom nam de koelkast in de huisartsenpraktijk ontslag?","Hij werd steeds koud behandeld."],
+["Hoe groet een HbA1c zijn vrienden?","Lang niet gezien, wel drie maanden aan je gedacht."],
+["Waarom zit er nooit een spook in het lab?","Alles wordt hier dubbel gecontroleerd."],
+["Wat zegt een cuvette als hij verliefd is?","Jij maakt mijn meting compleet."],
+["Waarom was de Levey-Jennings-grafiek zo zelfverzekerd?","Hij bleef altijd binnen zijn grenzen."],
+["Wat doet een barcode als hij moe is?","Even niet scannen, ik moet opladen."],
+["Waarom vertrouwt de centrifuge niemand?","Alles draait om hem."],
+["Hoe noem je een afgedankte pipetpunt?","Een tip van de dag."],
+["Waarom ging het verpleeghuis voor de nieuwe analyser?","Die had tenminste geduld met opwarmen."],
+["Wat is het favoriete vak van een glucosemeter op school?","Rekenen in mmol per liter."],
+["Waarom huilde de reagensdoos?","Hij was over de datum en niemand had het gemerkt."],
+["Wat zei Westgard tegen de nieuwe QC-waarde?","Eén keer buiten mag, maar ik houd je in de gaten."],
+["Waarom loopt een POCT-coördinator nooit verloren?","Er staat altijd een locatie bovenaan het scherm."],
+["Hoe noem je een lab-medewerker die nooit lacht?","Een negatieve controle."],
+["Waarom bracht de hematocriet een paraplu mee?","Er was kans op een bloedregen."],
+["Wat zegt een thermometer tegen een koelcel?","Jij bent echt mijn type: tussen 2 en 8 graden."],
+["Waarom wilde de lancet geen ruzie?","Hij prikt liever niet."],
+["Wat is het lievelingseten van een lotnummer?","Alles met een houdbaarheidsdatum."],
+["Waarom was de urinestrip zo emotioneel?","Elke keer als je hem aanraakte veranderde hij van kleur."],
+["Hoe weet je dat een analyser op vakantie is?","Hij geeft alleen nog foutcode 'out of office'."],
+["Waarom ging de controle-oplossing naar de sportschool?","Om in het juiste bereik te blijven."],
+["Wat zei de coördinator toen de telling klopte?","Dit is geen derving, dit is een wonder."],
+["Waarom verstopte de bloedsuiker zich?","Hij wilde niet nuchter gemeten worden."],
+["Wat zegt een spreadsheet tegen POCT Onderweg?","Fijn dat je eindelijk naar mij toe komt."],
+["Waarom kreeg de poliklinische analyser een medaille?","Hij stond altijd paraat, ook zonder koffie."],
+["Wat doet Dicoon op zondag?","Zichzelf kalibreren met een goed boek."],
+["Waarom is offline werken zo ontspannen?","Er kan niemand storen, zelfs de wifi niet."],
+["Wat zei het QC-materiaal na het ontdooien?","Even rustig op kamertemperatuur komen, dan ben ik er weer."]];
+const ALGGRAPPEN=[
+["Waarom nemen fietsers in Nijmegen altijd een jas mee?","Omdat de Waalbrug altijd tegenwind heeft, welke kant je ook op fietst."],
+["Wat zegt de ene muur tegen de andere muur?","We zien elkaar op de hoek."],
+["Waarom kon het skelet niet naar het feest?","Hij had niemand om mee te gaan."],
+["Wat is groen en zegt 'hallo'?","Een komkommer met een telefoon."],
+["Waarom zette de man zijn wekker in de koelkast?","Hij wilde koel wakker worden."],
+["Wat is het lievelingsdier van een bakker?","De broodhaan."],
+["Waarom zijn vissen zo slim?","Ze zitten altijd in scholen."],
+["Wat doet een koe als ze verdrietig is?","Ze loeit het uit."],
+["Waarom ging de tomaat blozen?","Hij zag de saladedressing."],
+["Hoe noem je een boomerang die niet terugkomt?","Een stok."],
+["Wat zei de oceaan tegen het strand?","Niets, hij zwaaide alleen."],
+["Waarom is de fiets omgevallen?","Hij was een beetje tweewielerig."],
+["Wat zegt een schildpad bij een file?","Eindelijk iemand die mijn tempo snapt."],
+["Wat heeft vier wielen en vliegt?","Een vuilniswagen."],
+["Waarom moest de kalender naar de dokter?","Zijn dagen waren geteld."],
+["Wat is een bij die altijd klaagt?","Een zeurbij."],
+["Waarom staat er een hek om de begraafplaats?","Omdat iedereen er dood graag in wil."],
+["Hoe noem je een dinosaurus die slaapt?","Een dino-snore."],
+["Wat zei de koffie tegen de suiker?","Zonder jou is het leven bitter."],
+["Waarom nam de muzikant een ladder mee naar het concert?","Hij wilde de hoge noten halen."],
+["Wat is wit en kan niet klimmen?","Een koelkast."],
+["Waarom willen spoken niet liegen?","Je kijkt dwars door ze heen."],
+["Wat is de favoriete sport van een kip?","Eiershockey."],
+["Waarom gaat een smartphone nooit op vakantie?","Hij heeft al genoeg roaming."],
+["Wat doet een wolk als hij jeukt?","Hij gaat naar een wolkenkrabber."],
+["Waarom huilde de ui?","Iedereen sneed hem."],
+["Hoe weet je dat een olifant in je koelkast heeft gezeten?","Voetafdrukken in de boter."],
+["Wat is een goochelaar die zijn baan kwijt is?","Een verdwijntruc."],
+["Wat zegt een nul tegen een acht?","Mooie riem!"],
+["Waarom slapen schapen zo goed?","Ze tellen nooit mensen."],
+["Hoe noem je een kangoeroe die niet kan springen?","Een kanniet-oeroe."],
+["Waarom ging de banaan naar de dokter?","Hij voelde zich niet zo lekker in zijn schil."],
+["Wat is het lievelingsvak van een slang?","Sis-sociologie."],
+["Waarom is het zo warm in een stadion na een wedstrijd?","Alle fans zijn weg."],
+["Wat zegt een printer tegen een computer?","Ik heb je papiertjes klaar."],
+["Waarom nam de wiskundeleraar een paraplu mee?","Er was kans op deelbuien."]];
+const EXTRA=[["Waarom neemt een Nederlander altijd een regenjas mee op vakantie?", "Je weet maar nooit of je toch thuis blijft."], ["Wat zegt een fiets als hij verliefd is?", "Ik trap er helemaal in."], ["Waarom ging de kaas naar de sportschool?", "Hij wilde minder gaten in zijn conditie."], ["Wat zegt een hond die een computer gebruikt?", "Ik heb mijn bot-ten gedownload."], ["Waarom zijn koekjes nooit eenzaam?", "Ze zitten altijd in een trommel vol vrienden."], ["Wat zegt een stoplicht tegen een auto?", "Niet kijken, ik sta me om te kleden."], ["Waarom ging het brood naar de dokter?", "Het voelde zich een beetje beschimmeld."], ["Wat zegt een vliegtuig als het landt?", "Fijn om weer met beide wielen op de grond te staan."], ["Waarom houden spoken van liften?", "Het verhoogt hun geest."], ["Wat is het lievelingsspel van een ei?", "Verstoppertje, tot Pasen."], ["Waarom fluit de ketel altijd?", "Hij kookt van plezier."], ["Wat zegt een boek tegen een ander boek?", "Ik heb een verhaal voor je."], ["Waarom kwam de koe te laat op het werk?", "Ze zat in de melkfile."], ["Wat zegt een veter tegen een schoen?", "Zonder mij loop je in de knoop."], ["Waarom slaapt een bed nooit?", "Hij moet altijd wakker liggen voor de volgende."],["Waarom nam de bakker ontslag?", "Hij verdiende er geen korst brood mee."], ["Wat zegt een appel tegen een peer?", "Jij bent ook niet helemaal rond."], ["Waarom gaan koeien nooit naar de film?", "Ze hebben alles al op de wei gezien."], ["Hoe noem je een hond die kan toveren?", "Een labracadabrador."], ["Waarom bleef de fiets thuis?", "Hij was te moe, zijn banden waren lek."], ["Wat is het lievelingsliedje van een fietser?", "Het wiel van fortuin."], ["Waarom nam de leraar een zonnebril mee naar de klas?", "Zijn leerlingen waren zo slim."], ["Wat zegt een boom in de herfst?", "Ik laat het even vallen."], ["Waarom hebben olifanten geen computer?", "Ze zijn bang voor de muis."], ["Wat is een schaap zonder benen?", "Een wolk."], ["Waarom liep de klok naar de dokter?", "Hij had last van tikken."], ["Wat doet een vampier bij de bank?", "Bloedgeld opnemen."], ["Wat is het lievelingsdrankje van een spook?", "Boe-ttermelk."], ["Waarom gaan pinguïns niet op vakantie naar de tropen?", "Ze zijn al zo goed gekleed voor een feest thuis."], ["Hoe noem je een vrolijke cowboy?", "Een jolly rancher."], ["Waarom deed het potlood niet mee aan de wedstrijd?", "Hij had geen punt."], ["Wat zegt een batterij tegen een andere batterij?", "Zullen we samen iets opladen?"], ["Waarom is een kat goed in computeren?", "Hij is altijd met de muis bezig."], ["Wat is een dinosaurus met een woordenboek?", "Een thesaurus."], ["Waarom zijn bananen nooit eenzaam?", "Ze hangen altijd in trossen rond."], ["Wat zegt een tandarts tegen een Smurf?", "Even blauw doorbijten."], ["Waarom stak de egel de weg niet over?", "Hij had een stekelige afspraak."], ["Hoe noem je een slapende stier?", "Een bulldozer."], ["Waarom liep de computer naar de dokter?", "Hij had een virus."], ["Wat doet een kikker in de bibliotheek?", "Hij zegt: boek, boek, boek."], ["Waarom gaat de zon nooit naar school?", "Hij heeft al miljoenen graden."], ["Wat is het lievelingsvak van een heks?", "Spelling."], ["Waarom zat de tomaat stil?", "Hij moest ketchuppen."], ["Wat zegt een magneet tegen de andere?", "Ik voel me erg tot je aangetrokken."], ["Waarom bleef de hockeystick thuis?", "Hij voelde zich een beetje krom."], ["Waarom gingen de kaasjes naar het feest?", "Het was er goed Gouda."], ["Hoe noem je een rijke kikker?", "Een kwakkapitalist."], ["Wat is het lievelingseten van een timmerman?", "Spijkers met koppen."], ["Waarom nam de koe een kompas mee?", "Ze wilde weten waar de melkweg was."], ["Wat zegt een duif tegen een andere duif?", "Zullen we rondjes vliegen?"], ["Waarom praat de koelkast niet?", "Hij is te cool voor gesprekjes."], ["Waarom heeft de giraffe een lange nek?", "Zijn voeten stinken."], ["Wat is een rups op een fiets?", "Een vlinder in opleiding."], ["Waarom ging de citroen naar de rechter?", "Hij was zuur behandeld."], ["Wat zegt een stoel tegen een tafel?", "Ik sta achter je."], ["Waarom slaapt de bakker zo goed?", "Hij heeft genoeg deeg-rust."], ["Hoe noem je een kip op een skateboard?", "Kip met rollen."], ["Waarom kan een fiets niet alleen staan?", "Hij is te moe, hij is tweewielig."], ["Wat zegt een sneeuwpop tegen een andere sneeuwpop?", "Ruik jij ook wortels?"], ["Waarom gaan kangoeroes niet naar de disco?", "Ze springen liever buiten."], ["Waarom loopt de trein altijd te laat?", "Hij heeft veel last van wissels in zijn humeur."], ["Hoe noem je een eekhoorn die nooit ophoudt met praten?", "Een kletskous met staart."], ["Waarom ging de gitaar naar de kapper?", "Hij moest gestemd worden."], ["Wat zegt het ene oog tegen het andere?", "Tussen ons zit iets dat ruikt."], ["Waarom ging de vork niet met het mes mee?", "Hij vond hem te scherp."], ["Hoe noem je een kip die rekent?", "Een rekenhen."], ["Waarom wilde de pizza niet praten?", "Hij was te cheesy."], ["Wat is de favoriete muziek van een mummie?", "Wrap."], ["Waarom houden spinnen van computers?", "Vanwege het web."], ["Wat doet een Nijmegenaar op de Vierdaagse?", "Eén keer per jaar heel veel stappen tellen, en dat noemen we gezellig."], ["Waarom fietsen Arnhemmers zo hard de Veluwezoom op?", "Omdat ze weten dat ze daarna naar beneden mogen."], ["Wat zegt een Edenaar als het regent?", "Goed weer voor de heide."], ["Waarom staat de koffieautomaat altijd centraal?", "Daar worden de echte vergaderingen gehouden."], ["Wat is het verschil tussen een vergadering en een koffiepauze?", "In de pauze worden besluiten genomen."], ["Waarom nam de collega een ladder mee naar het werk?", "Hij wilde hogerop komen."], ["Wat zegt een printer op maandagochtend?", "Papierstoring, kom later terug."], ["Waarom heeft de agenda nooit vrij?", "Hij zit altijd vol afspraken."], ["Wat is het lievelingsdier van een IT'er?", "De Python."], ["Waarom is de wifi altijd moe?", "Hij moet de hele dag verbinding zoeken."], ["Wat zegt een e-mail tegen een andere e-mail?", "Zullen we samen in de spam gaan?"], ["Waarom ging het wachtwoord naar de therapeut?", "Hij moest steeds veranderen."], ["Wat doet een parkeerautomaat als hij blij is?", "Hij geeft wisselgeld."], ["Waarom houdt een navigatiesysteem van rondjes?", "Het blijft maar herberekenen."], ["Wat zegt de maandag tegen de vrijdag?", "Waarom ben jij altijd populairder?"], ["Waarom liep de stofzuiger weg?", "Hij was het zat om alles op te zuigen."], ["Wat is een koekje onder een boom?", "Een schaduwkoekje."], ["Waarom dragen voetballers geen horloges?", "Ze hebben al een scheidsrechter die de tijd bijhoudt."], ["Wat zegt een tennisbal tegen het net?", "Ik kom er wel overheen."], ["Waarom lacht een schaatser altijd?", "Hij glijdt overal makkelijk doorheen."], ["Hoe noem je een snelle stoel?", "Een racestoel."], ["Waarom ging de appeltaart naar school?", "Om een beetje meer kaneel-ligent te worden."], ["Wat is het lievelingseten van een monteur?", "Moersoep."], ["Waarom had de oven geen vrienden?", "Hij was te heet gebakerd."], ["Wat zegt een theezakje als het moe is?", "Ik moet even trekken."], ["Waarom ging de eend naar de kapper?", "Om zijn kwak te laten knippen."], ["Waarom liep de weg niet weg?", "Hij lag al."], ["Wat zegt een ballon tegen een cactus?", "Blijf alsjeblieft op afstand."], ["Waarom was de rekenmachine zo populair?", "Je kon altijd op hem rekenen."], ["Wat is het lievelingslied van een tandarts?", "Oh, wat een kies."], ["Waarom drinken vissen zo veel?", "Ze krijgen water als ze hun mond opendoen."], ["Hoe noem je een vrolijke hamster?", "Een blije knager."], ["Waarom pakte de man zijn horloge mee in bed?", "Hij wilde op tijd slapen."], ["Wat zegt een flamingo als hij op één been staat?", "Even in balans blijven, collega."], ["Waarom wilde de wolk niet weg?", "Hij voelde zich hier helemaal thuis, zo lekker grijs."], ["Wat is een boze kaas?", "Een geitenkaas met humeur."], ["Waarom krijgt een spiegel nooit ruzie?", "Hij laat altijd de ander zien."], ["Wat doet een Nederlander als de zon schijnt?", "Meteen een terras zoeken, ook in maart."], ["Waarom fietsen Nederlanders in de regen?", "Omdat ze anders nooit fietsen."], ["Wat zegt een stroopwafel tegen een kop koffie?", "Ik zit graag even bovenop je."], ["Waarom staat een hagelslagje altijd vooraan?", "Hij wil gestrooid worden."], ["Wat zegt een dropje tegen een ander dropje?", "Jij bent ook zout."], ["Waarom is een windmolen nooit moe?", "Hij draait zijn hand niet om voor wat wind."], ["Wat is het favoriete gerecht van een kok in de winter?", "Snert, zodat de lepel blijft staan."], ["Waarom ging de klomp naar de dokter?", "Hij had een houten kop."], ["Wat doet een tulp als hij verlegen is?", "Hij sluit zich even."], ["Waarom heeft een kaasboer altijd goede zin?", "Hij snijdt overal een plakje uit."], ["Wat zegt de trein tegen het perron?", "Ik kom zo, nog even een vertraging van vijf minuten."], ["Waarom blijft de paraplu thuis als het zonnig is?", "Hij is liever reserve."], ["Wat zegt de kerstman tegen de paashaas?", "Jij hebt het makkelijk, jij hoeft niet door de schoorsteen."], ["Waarom zingen vogels 's ochtends?", "Omdat ze geen wekker hebben."], ["Waarom kan een fietsbel niet zingen?", "Hij kent maar één toon."], ["Wat zegt een cactus tegen een knuffel?", "Liever niet, ik ben wat stekelig vandaag."], ["Waarom verveelt een slak zich nooit?", "Hij heeft zijn huis altijd bij zich."], ["Wat doet een sneeuwvlok als hij zich alleen voelt?", "Hij wacht op een sneeuwbui."], ["Waarom ging de muis naar de sportschool?", "Hij wilde een beetje meer klik in zijn spieren."], ["Wat zegt een oude schoen tegen een nieuwe schoen?", "Wacht maar tot je een veter kwijt bent."], ["Waarom is de maan nooit hongerig?", "Hij is al vol."]];
+// Willekeurige volgorde (vast per installatie-zaad), elke dag de volgende: geen herhaling tot alle grappen geweest zijn.
+const GRAPPEN=(()=>{const all=[...LABGRAPPEN,...ALGGRAPPEN,...EXTRA];let z=0x9e3779b9;const rnd=()=>{z^=z<<13;z^=z>>>17;z^=z<<5;return(z>>>0)/4294967296};
+  for(let i=all.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[all[i],all[j]]=[all[j],all[i]]}return all})();
+const dagNr=()=>{const d=new Date();return Math.floor((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(2026,0,1))/864e5)};
+// Avatar overgenomen uit het POCT e-learningportaal (Dicoon, POCT-coördinator).
+const DICOON_SVG="<svg viewBox=\"0 0 120 150\" width=\"100%\" height=\"100%\" aria-hidden=\"true\"><defs><radialGradient id=\"dcSkin\" cx=\"38%\" cy=\"32%\" r=\"75%\"><stop offset=\"0\" stop-color=\"#e2a877\"/><stop offset=\".55\" stop-color=\"#c68c5c\"/><stop offset=\"1\" stop-color=\"#8f5a33\"/></radialGradient><linearGradient id=\"dcNeck\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#7d4d2b\"/><stop offset=\".5\" stop-color=\"#b07849\"/><stop offset=\"1\" stop-color=\"#c68c5c\"/></linearGradient><radialGradient id=\"dcHair\" cx=\"40%\" cy=\"25%\" r=\"80%\"><stop offset=\"0\" stop-color=\"#4a4a52\"/><stop offset=\".35\" stop-color=\"#1c1c20\"/><stop offset=\"1\" stop-color=\"#050505\"/></radialGradient><linearGradient id=\"dcCoatL\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#c9d1da\"/><stop offset=\".45\" stop-color=\"#ffffff\"/><stop offset=\"1\" stop-color=\"#e6ebf0\"/></linearGradient><linearGradient id=\"dcCoatR\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#e6ebf0\"/><stop offset=\".5\" stop-color=\"#f7f9fb\"/><stop offset=\"1\" stop-color=\"#b9c3ce\"/></linearGradient><linearGradient id=\"dcShirt\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#11181c\"/><stop offset=\".5\" stop-color=\"#37474f\"/><stop offset=\"1\" stop-color=\"#11181c\"/></linearGradient><radialGradient id=\"dcGlove\" cx=\"35%\" cy=\"30%\" r=\"75%\"><stop offset=\"0\" stop-color=\"#b39ddb\"/><stop offset=\".5\" stop-color=\"#7e57c2\"/><stop offset=\"1\" stop-color=\"#4527a0\"/></radialGradient><linearGradient id=\"dcLens\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#ffd180\"/><stop offset=\".5\" stop-color=\"#ff9800\"/><stop offset=\"1\" stop-color=\"#e65100\"/></linearGradient><linearGradient id=\"dcTube\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#cfd8dc\"/><stop offset=\".35\" stop-color=\"#ffffff\"/><stop offset=\"1\" stop-color=\"#b0bec5\"/></linearGradient><linearGradient id=\"dcBlood\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#7f0000\"/><stop offset=\".4\" stop-color=\"#e53935\"/><stop offset=\"1\" stop-color=\"#8e0000\"/></linearGradient><radialGradient id=\"dcEar\" cx=\"40%\" cy=\"40%\" r=\"70%\"><stop offset=\"0\" stop-color=\"#d29a6a\"/><stop offset=\"1\" stop-color=\"#8f5a33\"/></radialGradient><radialGradient id=\"dcShadow\" cx=\"50%\" cy=\"50%\" r=\"50%\"><stop offset=\"0\" stop-color=\"#000\" stop-opacity=\".35\"/><stop offset=\"1\" stop-color=\"#000\" stop-opacity=\"0\"/></radialGradient></defs><ellipse cx=\"60\" cy=\"148\" rx=\"42\" ry=\"5\" fill=\"url(#dcShadow)\"/><g class=\"dc-tail\"><path d=\"M80 24 Q106 20 108 44 Q110 68 98 88 Q94 72 92 58 Q90 40 80 34 Z\" fill=\"url(#dcHair)\"/><path d=\"M95 34 Q104 46 101 66\" fill=\"none\" stroke=\"#6b6b75\" stroke-width=\"2\" stroke-linecap=\"round\" opacity=\".7\"/><path d=\"M97 40 Q102 60 98 80\" fill=\"none\" stroke=\"#3a3a3a\" stroke-width=\"1.2\"/><rect x=\"80\" y=\"23\" width=\"9\" height=\"9\" rx=\"3\" transform=\"rotate(-20 84 28)\" fill=\"#a3172d\"/></g><path d=\"M24 150 L29 104 Q33 92 46 90 L74 90 Q87 92 91 104 L96 150 Z\" fill=\"url(#dcShirt)\"/><path d=\"M24 150 L29 104 Q33 92 46 90 L52 92 L56 150 Z\" fill=\"url(#dcCoatL)\" stroke=\"#9aa5b1\" stroke-width=\"1.6\"/><path d=\"M96 150 L91 104 Q87 92 74 90 L68 92 L64 150 Z\" fill=\"url(#dcCoatR)\" stroke=\"#9aa5b1\" stroke-width=\"1.6\"/><path d=\"M52 92 L56 150 M68 92 L64 150\" stroke=\"#000\" stroke-opacity=\".18\" stroke-width=\"3\"/><path d=\"M46 90 L52 104 L50 92 Z M74 90 L68 104 L70 92 Z\" fill=\"#e3e8ee\" stroke=\"#9aa5b1\" stroke-width=\"1.5\"/><path d=\"M54 96 L60 104 L66 96\" fill=\"none\" stroke=\"#a3172d\" stroke-width=\"2.5\"/><rect x=\"32\" y=\"114\" width=\"15\" height=\"12\" rx=\"2\" fill=\"#fff\" stroke=\"#9aa5b1\" stroke-width=\"1.5\"/><rect x=\"35\" y=\"106\" width=\"3\" height=\"11\" rx=\"1\" fill=\"#1f5f8b\"/><rect x=\"40\" y=\"105\" width=\"3\" height=\"12\" rx=\"1\" fill=\"#a3172d\"/><rect x=\"70\" y=\"112\" width=\"21\" height=\"9\" rx=\"2\" fill=\"#a3172d\"/><text x=\"80.5\" y=\"119\" font-size=\"5.5\" fill=\"#fff\" text-anchor=\"middle\" font-family=\"Arial\" font-weight=\"700\">DICOON</text><rect x=\"70\" y=\"122\" width=\"21\" height=\"7\" rx=\"1.5\" fill=\"#263238\"/><text x=\"80.5\" y=\"127.6\" font-size=\"4.6\" fill=\"#fff\" text-anchor=\"middle\" font-family=\"Arial\" font-weight=\"700\">POCT</text><g class=\"dc-arm\"><path d=\"M90 108 Q100 102 102 94\" fill=\"none\" stroke=\"#fff\" stroke-width=\"12\" stroke-linecap=\"round\"/><path d=\"M90 108 Q100 102 102 94\" fill=\"none\" stroke=\"#9aa5b1\" stroke-width=\"14\" stroke-linecap=\"round\" opacity=\".3\"/><rect x=\"95\" y=\"88\" width=\"14\" height=\"6\" rx=\"3\" fill=\"#e3e8ee\" stroke=\"#9aa5b1\" stroke-width=\"1.2\"/><path d=\"M102 89 L104 78\" stroke=\"#c68c5c\" stroke-width=\"8\" stroke-linecap=\"round\"/><circle cx=\"104\" cy=\"75\" r=\"6.5\" fill=\"url(#dcGlove)\" stroke=\"#5e35b1\" stroke-width=\"1.2\"/><g transform=\"rotate(12 106 60)\"><rect x=\"101\" y=\"42\" width=\"9\" height=\"26\" rx=\"4.5\" fill=\"url(#dcTube)\" stroke=\"#6c7a89\" stroke-width=\"1.5\"/><rect x=\"102.5\" y=\"54\" width=\"6\" height=\"12.5\" rx=\"3\" fill=\"url(#dcBlood)\"/><rect x=\"103.3\" y=\"44\" width=\"1.6\" height=\"21\" rx=\".8\" fill=\"#fff\" opacity=\".8\"/><rect x=\"99\" y=\"40\" width=\"13\" height=\"4\" rx=\"1.5\" fill=\"#6c7a89\"/></g></g><g class=\"dc-hands\"><path d=\"M32 108 Q40 100 50 96\" fill=\"none\" stroke=\"#fff\" stroke-width=\"11\" stroke-linecap=\"round\"/><path d=\"M88 108 Q80 100 70 96\" fill=\"none\" stroke=\"#fff\" stroke-width=\"11\" stroke-linecap=\"round\"/><g class=\"dc-hl\"><ellipse cx=\"53\" cy=\"92\" rx=\"6\" ry=\"8\" fill=\"url(#dcGlove)\" stroke=\"#5e35b1\"/></g><g class=\"dc-hr\"><ellipse cx=\"67\" cy=\"92\" rx=\"6\" ry=\"8\" fill=\"url(#dcGlove)\" stroke=\"#5e35b1\"/></g><g class=\"dc-stars\" fill=\"#f6b400\"><path d=\"M60 72 l2 5 5 0 -4 3 2 5 -5 -3 -5 3 2 -5 -4 -3 5 0z\"/></g></g><g class=\"dc-thumb\"><path d=\"M90 108 Q102 98 104 86\" fill=\"none\" stroke=\"#fff\" stroke-width=\"11\" stroke-linecap=\"round\"/><rect x=\"96\" y=\"72\" width=\"17\" height=\"15\" rx=\"5\" fill=\"url(#dcGlove)\" stroke=\"#5e35b1\"/><path d=\"M104 76 h8 M104 80 h8 M104 84 h7\" stroke=\"#5e35b1\" stroke-width=\"1.3\" stroke-linecap=\"round\"/><rect x=\"94\" y=\"60\" width=\"7\" height=\"15\" rx=\"3.5\" transform=\"rotate(-18 97 74)\" fill=\"url(#dcGlove)\" stroke=\"#5e35b1\"/></g><rect x=\"53\" y=\"78\" width=\"14\" height=\"14\" fill=\"url(#dcNeck)\"/><circle cx=\"60\" cy=\"52\" r=\"30\" fill=\"url(#dcSkin)\"/><ellipse cx=\"48\" cy=\"38\" rx=\"10\" ry=\"5\" fill=\"#fff\" opacity=\".12\"/><path d=\"M30 54 Q26 18 60 19 Q92 19 90 50 Q86 36 74 32 Q62 40 40 38 Q33 44 30 54 Z\" fill=\"url(#dcHair)\"/><path d=\"M38 26 Q52 19 68 21\" fill=\"none\" stroke=\"#7a7a85\" stroke-width=\"2.4\" stroke-linecap=\"round\" opacity=\".6\"/><circle cx=\"30\" cy=\"56\" r=\"5\" fill=\"url(#dcEar)\"/><circle cx=\"90\" cy=\"56\" r=\"5\" fill=\"url(#dcEar)\"/><circle cx=\"30\" cy=\"62\" r=\"1.8\" fill=\"#f6b400\"/><circle cx=\"90\" cy=\"62\" r=\"1.8\" fill=\"#f6b400\"/><path d=\"M31 34 Q60 24 89 34\" fill=\"none\" stroke=\"#263238\" stroke-width=\"3\"/><rect x=\"37\" y=\"25\" width=\"20\" height=\"11\" rx=\"5\" fill=\"url(#dcLens)\" stroke=\"#263238\" stroke-width=\"2.2\"/><rect x=\"63\" y=\"25\" width=\"20\" height=\"11\" rx=\"5\" fill=\"url(#dcLens)\" stroke=\"#263238\" stroke-width=\"2.2\"/><path d=\"M40 28 l5 0 M66 28 l5 0\" stroke=\"#fff\" stroke-width=\"1.6\" stroke-linecap=\"round\" opacity=\".8\"/><path d=\"M39 46 Q46 44 54 47\" fill=\"none\" stroke=\"#111\" stroke-width=\"3.2\" stroke-linecap=\"round\"/><path d=\"M66 45 Q74 39 82 42\" fill=\"none\" stroke=\"#111\" stroke-width=\"3.2\" stroke-linecap=\"round\"/><g class=\"dc-eyes\"><path d=\"M41 53 Q47 48 53 53 Q47 56 41 53 Z\" fill=\"#fff\"/><path d=\"M67 53 Q73 48 79 53 Q73 56 67 53 Z\" fill=\"#fff\"/><circle cx=\"47\" cy=\"52.5\" r=\"2.8\" fill=\"#263238\"/><circle cx=\"73\" cy=\"52.5\" r=\"2.8\" fill=\"#263238\"/><path d=\"M41 53 Q47 48 53 53 M67 53 Q73 48 79 53\" fill=\"none\" stroke=\"#111\" stroke-width=\"1.8\" stroke-linecap=\"round\"/></g><path d=\"M58.5 59 Q60 61.5 62 60\" fill=\"none\" stroke=\"#8f5a33\" stroke-width=\"1.3\" opacity=\".8\" stroke-linecap=\"round\"/><ellipse cx=\"41\" cy=\"64\" rx=\"5\" ry=\"3\" fill=\"#e07a6a\" opacity=\".3\"/><ellipse cx=\"79\" cy=\"64\" rx=\"5\" ry=\"3\" fill=\"#e07a6a\" opacity=\".3\"/><path d=\"M50 69 Q60 73 71 66\" fill=\"none\" stroke=\"#7a2335\" stroke-width=\"2.8\" stroke-linecap=\"round\"/><path d=\"M71 66 l2 -2\" stroke=\"#7a2335\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg>";
+let grapExtra=0,grapOpen=false;
+function renderDicoon(){const el=$("#dicoon");if(!el)return;if(S.cfg.geenGrap){el.hidden=true;return}el.hidden=false;
+  const g=GRAPPEN[((dagNr()+grapExtra)%GRAPPEN.length+GRAPPEN.length)%GRAPPEN.length];const naam=S.cfg.naam?", "+esc(S.cfg.naam.split(" ")[0]):"";
+  el.innerHTML=`<span id="dicoonFig" role="img" aria-label="Dicoon, POCT-coördinator">${DICOON_SVG}</span><div class="bubble" aria-live="polite"><span class="who">Dicoon · grap van de dag</span>
+    ${grapExtra===0&&!grapOpen?`<span class="small muted">Goedemorgen${naam}!</span>`:""}<span>${esc(g[0])}</span>
+    ${grapOpen?`<span class="pl">${esc(g[1])}</span><button type="button" class="ghost sm" id="grapNog">Nog eentje</button>`:`<button type="button" class="ghost sm" id="grapOnthul">Vertel!</button>`}</div>`}
+
+/* ================= events ================= */
+document.addEventListener("click",async e=>{if(e.target.closest("#dicoonFig")){grapOpen=!grapOpen;renderDicoon();return}
+  const t=e.target.closest("button,[data-kies]");if(!t)return;
+  if(t.dataset.step){const i=document.getElementById(t.dataset.for);const v=(+i.value||0)+ +t.dataset.step;i.value=Math.max(+i.min||0,v);i.dispatchEvent(new Event("input",{bubbles:true}));navigator.vibrate?.(8);return}
+  if(t.dataset.kies){kiesLoc(t.dataset.kies);return}
+  if(t.dataset.regio!==undefined&&t.classList.contains("chip")){S.cfg.regio=t.dataset.regio;save();renderLocSheet();return}
+  if(t.dataset.type!==undefined&&t.classList.contains("chip")){S.cfg.type=t.dataset.type;save();renderLocSheet();return}
+  if(t.dataset.close!==undefined){t.closest("dialog").close();return}
+  if(t.dataset.wis){const[c,id]=t.dataset.wis.split("|");const coll=c||COLLS.find(k=>S[k][id]);
+    if(t.dataset.zeker!=="1"){t.dataset.zeker="1";t.textContent="Zeker?";setTimeout(()=>{if(t.isConnected){t.dataset.zeker="";t.textContent="Verwijderen"}},3000);return}
+    delete S[coll][id];save();toast("Verwijderd");route();return}
+  if(t.id==="locBar"){openLocSheet();return}
+  if(t.id==="grapOnthul"){grapOpen=true;renderDicoon();return}
+  if(t.id==="grapNog"){grapExtra++;grapOpen=false;renderDicoon();return}
+  if(t.id==="syncNu"){syncNu();return}
+  if(t.id==="bevestig"&&wachtend){markeer(wachtend);wachtend=null;$("#syncConfirm").innerHTML="";toast("Gemarkeerd als verzonden");renderSync();return}
+  if(t.id==="alsTekst"&&lastFiles){toonTekst(lastFiles[0].naam,lastFiles[0].tekst);return}
+  if(t.id==="bronKies"){$("#bronFile").click();return}
+  if(t.id==="textCopy"){const ta=$("#textBody");try{await navigator.clipboard.writeText(ta.value);toast("Gekopieerd")}catch(_){ta.focus();ta.select();toast("Selecteer en kopieer de tekst")}return}
+  if(t.id==="volledigeExport"){const tekst=JSON.stringify({...S,app:"poct-onderweg-volledig",gemaakt:new Date().toISOString()},null,1),naam=`poct-onderweg-volledig_${naamSlug()}_${stamp()}.json`;
+    const r=await bewaarBestanden([{naam,tekst,type:"application/json"}]);if(r)toast(r==="gedeeld"?"Gedeeld":"Gedownload. Lukt dat niet, gebruik Toon als tekst.");lastFiles=[{naam,tekst}];return}
+  if(t.id==="wisVerzonden"){if(t.dataset.zeker!=="1"){t.dataset.zeker="1";t.textContent="Tik nogmaals om op te ruimen";return}
+    const grens=Date.now()-90*864e5;let n=0;COLLS.forEach(c=>Object.values(S[c]).forEach(r=>{if(r.sync==="verzonden"&&Date.parse(r.aangemaakt||r.datum)<grens){delete S[c][r.id];n++}}));save();t.dataset.zeker="";t.textContent="Verzonden records ouder dan 90 dagen opruimen";toast(`${n} records opgeruimd`);renderSync();return}
+});
+$("#locZoek").addEventListener("input",renderLocSheet);
+$("#locSheet").addEventListener("click",e=>{if(e.target===e.currentTarget)e.currentTarget.close()});
+$("#bronFile").addEventListener("change",e=>{const f=e.target.files[0];if(f)leesBron(f);e.target.value=""});
+$("#syncDoel").addEventListener("change",e=>{S.cfg.doel=e.target.value;save();renderSync()});
+$("#cfgNaam").addEventListener("change",e=>{S.cfg.naam=e.target.value.trim();save()});
+$("#cfgGrap").addEventListener("change",e=>{S.cfg.geenGrap=!e.target.checked;save()});
+["gTenant:tenant","gClient:client","gPad:pad"].forEach(x=>{const[id,k]=x.split(":");$("#"+id).addEventListener("change",e=>{S.cfg.graph[k]=e.target.value.trim();msal=null;save();renderSync()})});
+$("#locNieuw").addEventListener("submit",e=>{e.preventDefault();const naam=$("#lnNaam").value.trim();if(!naam)return;
+  if(locs().some(l=>l.naam.toLowerCase()===naam.toLowerCase())){toast("Deze locatie bestaat al.",true);return}
+  const id=uid();S.locaties[id]={id,naam,type:$("#lnType").value,regio:$("#lnRegio").value||STD_REGIO,actief:true,lokaal:true,sync:"nieuw",aangemaakt:new Date().toISOString()};
+  S.cfg.huidig=id;save();$("#lnNaam").value="";toast("Locatie toegevoegd en gekozen");renderBadge();renderLocBar()});
+function netState(){const on=navigator.onLine;$("#netPill").classList.toggle("off",!on);$("#netTxt").textContent=on?"Online":"Offline"}
+addEventListener("online",netState);addEventListener("offline",netState);
+
+/* ================= start ================= */
+load();migreer();save();netState();route();
+if("serviceWorker" in navigator&&location.protocol==="https:"&&!/claude|anthropic/.test(location.hostname)){try{navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}}
+</script>
+
+</body>
+</html>
